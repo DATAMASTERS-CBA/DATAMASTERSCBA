@@ -6,6 +6,23 @@
 <title>TechParts Store</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<!-- Firebase carga primero para estar listo antes que el script principal -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script>
+try {
+  firebase.initializeApp({
+    apiKey: "AIzaSyCEIAO0rgzkfQofsqviwvdQvumJNgUepZ8",
+    authDomain: "dmastersventas.firebaseapp.com",
+    projectId: "dmastersventas",
+    storageBucket: "dmastersventas.firebasestorage.app",
+    messagingSenderId: "361433365644",
+    appId: "1:361433365644:web:bd81e4e92d1bd36518cfa9"
+  });
+  window._fbDB = firebase.firestore();
+  console.log('Firebase OK');
+} catch(e) { window._fbDB = null; console.warn('Firebase error:', e); }
+</script>
 <style>
 /* ===== CSS VARIABLES / THEMES ===== */
 :root {
@@ -1313,14 +1330,19 @@ function saveFullData() {
     if (currentUser) localStorage.setItem('techparts_user', JSON.stringify(currentUser));
     else localStorage.removeItem('techparts_user');
   } catch(e) {}
-  // Firebase totalmente en segundo plano — nunca bloquea
+  // Firebase en segundo plano
   try {
     var fbdb = window._fbDB;
     if (fbdb) {
-      fbdb.collection('techparts').doc('db').set({ v: JSON.stringify(DB) });
-      fbdb.collection('techparts').doc('banners').set({ v: JSON.stringify(bannersConfig) });
+      fbdb.collection('techparts').doc('db').set({ v: JSON.stringify(DB) })
+        .then(function(){ console.log('Firebase DB guardado OK'); })
+        .catch(function(e){ console.warn('Firebase save error:', e); });
+      fbdb.collection('techparts').doc('banners').set({ v: JSON.stringify(bannersConfig) })
+        .catch(function(e){ console.warn('Firebase banners error:', e); });
+    } else {
+      console.warn('saveFullData: Firebase no disponible aún');
     }
-  } catch(e) {}
+  } catch(e) { console.warn('saveFullData Firebase error:', e); }
 }
 function loadFullData() {
   // SIEMPRE cargar localStorage primero (instantáneo, nunca falla)
@@ -1341,9 +1363,16 @@ function loadFullData() {
 }
 function _syncFirebase() {
   if (!window._fbSyncPending) return;
+  // Si Firebase todavía no cargó, reintentar hasta 10 segundos
+  if (!window._fbDB) {
+    if (!window._fbRetries) window._fbRetries = 0;
+    window._fbRetries++;
+    if (window._fbRetries < 20) { setTimeout(_syncFirebase, 500); return; }
+    console.warn('Firebase no disponible después de 10s');
+    return;
+  }
   window._fbSyncPending = false;
   var fbdb = window._fbDB;
-  if (!fbdb) return;
   try {
     Promise.all([
       fbdb.collection('techparts').doc('db').get(),
@@ -1353,11 +1382,12 @@ function _syncFirebase() {
       if (snaps[0].exists) {
         try {
           var d = JSON.parse(snaps[0].data().v);
-          DB = Object.assign({}, DB, d);
+          // Reemplazar completamente con datos de Firebase (no mezclar)
+          DB = d;
           _fixDB();
           localStorage.setItem('techparts_db', JSON.stringify(DB));
           changed = true;
-        } catch(e) {}
+        } catch(e) { console.warn('Error parseando Firebase DB:', e); }
       }
       if (snaps[1].exists) {
         try {
@@ -1376,6 +1406,21 @@ function _syncFirebase() {
         renderClientsTable(); renderHistoryList(); renderNewSaleNotification();
         updateFooter(); updateHeaderLogo(); updateHeaderStoreName(); updateCartCount();
         console.log('✅ Firebase sincronizado');
+      } else if (window._seedPending) {
+        // Firebase no tenía datos — ahora sí insertar demo data y guardar
+        window._seedPending = false;
+        var demoUser = { name: 'Cliente Demo', email: 'cliente@demo.com', phone: '+5493510000000', address: 'Calle Demo 123', password: 'cliente123', role: 'user', createdAt: new Date().toISOString() };
+        var demoProducts = [
+          { id:'P001', name:'Pantalla LED 15.6" FHD IPS', description:'Pantalla de alta definición para notebooks', partNumber:'LP156WF6', brand:'HP', model:'Pavilion 15', componentType:'Interno', partSpecific:'Pantalla', images:['https://images.unsplash.com/photo-1593640408182-31c228b37ac2?w=400&h=400&fit=crop'], cost:45, margin:60, finalPrice:72, stock:8, badge:'Nuevo' },
+          { id:'P002', name:'Teclado HP Pavilion 15 Español', description:'Teclado retroiluminado', partNumber:'TPN-Q173', brand:'HP', model:'Pavilion 15', componentType:'Externo', partSpecific:'Teclado', images:['https://images.unsplash.com/photo-1541140532154-b024d705b90a?w=400&h=400&fit=crop'], cost:22, margin:50, finalPrice:33, stock:15, badge:'Nuevo' }
+        ];
+        DB.products = demoProducts;
+        DB.categories.models = { 'HP': ['Pavilion 15','Envy 13'], 'Dell': ['Inspiron 14'], 'Lenovo': ['ThinkPad T490'], 'Asus': ['ZenBook 14'], 'Samsung': ['Universal'] };
+        if (DB.users.length === 0) DB.users.push(demoUser);
+        if (DB.orders.length === 0) DB.orders.push({ id:'ORD-DEMO001', userId:'cliente@demo.com', userName:'Cliente Demo', address:'Calle Demo 123', phone:'+5493510000000', email:'cliente@demo.com', payment:'Efectivo', items:[{id:'P001',name:'Pantalla LED 15.6" FHD IPS',qty:1,price:72}], total:72, status:'Confirmado', date:new Date().toLocaleString() });
+        saveFullData();
+        renderProducts(); renderBanners(); renderInventoryTable();
+        renderStats(); renderAllOrders(); renderClientsTable();
       }
     }).catch(function(e) { console.warn('Firebase sync error:', e); });
   } catch(e) {}
@@ -1677,7 +1722,10 @@ function removePhoto(i) { photoUrls.splice(i, 1); renderPhotoList(); notify('�
 
 // ===== DEMO DATA =====
 function seedDemoData() {
+  // Solo insertar demo si no hay productos NI en localStorage NI pendiente de Firebase
   if (DB.products.length > 0) return;
+  // Si Firebase está disponible, esperar a que responda antes de meter demo data
+  if (window._fbDB) { window._seedPending = true; return; }
   const demos = [
     { id:'P001', name:'Pantalla LED 15.6" FHD IPS', description:'Pantalla de alta definición para notebooks', partNumber:'LP156WF6', brand:'HP', model:'Pavilion 15', componentType:'Interno', partSpecific:'Pantalla', images:['https://images.unsplash.com/photo-1593640408182-31c228b37ac2?w=400&h=400&fit=crop'], cost:45, margin:60, finalPrice:72, stock:8, badge:'Nuevo' },
     { id:'P002', name:'Teclado HP Pavilion 15 Español', description:'Teclado retroiluminado', partNumber:'TPN-Q173', brand:'HP', model:'Pavilion 15', componentType:'Externo', partSpecific:'Teclado', images:['https://images.unsplash.com/photo-1541140532154-b024d705b90a?w=400&h=400&fit=crop'], cost:22, margin:50, finalPrice:33, stock:15, badge:'Nuevo' }
@@ -1800,27 +1848,10 @@ function saveProfileChanges(){ if(!currentUser)return; const newName=document.ge
   if (!bgSelectorInitialized) { createBgSelectorModal(); bgSelectorInitialized=true; }
   addBgSelectorButton();
   // Sincronizar Firebase después de que la app ya está visible
-  setTimeout(_syncFirebase, 1500);
+  setTimeout(_syncFirebase, 2000);
 })();
 setInterval(function(){ saveFullData(); }, 30000);
 </script>
 
-<!-- Firebase SDK (carga sin bloquear, después del script principal) -->
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script>
-try {
-  firebase.initializeApp({
-    apiKey: "AIzaSyCEIAO0rgzkfQofsqviwvdQvumJNgUepZ8",
-    authDomain: "dmastersventas.firebaseapp.com",
-    projectId: "dmastersventas",
-    storageBucket: "dmastersventas.firebasestorage.app",
-    messagingSenderId: "361433365644",
-    appId: "1:361433365644:web:bd81e4e92d1bd36518cfa9"
-  });
-  window._fbDB = firebase.firestore();
-  console.log('✅ Firebase listo');
-} catch(e) { console.warn('Firebase no disponible:', e); }
-</script>
 </body>
 </html>
