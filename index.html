@@ -1309,63 +1309,87 @@ function saveFullData() {
     }
   } catch(e) { console.error('Error guardando:', e); }
 }
-function loadFullData() {
-  // Cargar localStorage al instante
+function fixDBFields() {
+  if (!DB.deliveredOrders) DB.deliveredOrders = [];
+  if (!DB.reviewedSales) DB.reviewedSales = [];
+  if (!DB.config.logoIcon) DB.config.logoIcon = '💻';
+  if (!DB.categories.models) DB.categories.models = {};
+  if (!DB.config.textColors) DB.config.textColors = { main: '#1A1A2E', secondary: '#555', tertiary: '#888', border: '#E0E0E0', bg: '#F5F5F5', surface: '#FFF' };
+  if (DB.config.autoContrast === undefined) DB.config.autoContrast = false;
+  if (!DB.config.bgType) DB.config.bgType = 'default';
+  if (!DB.config.bgFitMode) DB.config.bgFitMode = 'cover';
+}
+function renderAll() {
+  applyStoredConfig(); renderProducts(); renderInventoryTable();
+  renderStats(); renderAllOrders(); renderDeliveredList();
+  renderClientsTable(); renderHistoryList(); renderNewSaleNotification();
+  renderBanners(); updateFooter(); updateHeaderLogo(); updateHeaderStoreName(); updateCartCount();
+}
+function loadFromLocalStorage() {
   try {
     const db = localStorage.getItem('techparts_db');
-    if (db) {
-      const parsed = JSON.parse(db);
-      DB = { ...DB, ...parsed };
-      if (!DB.deliveredOrders) DB.deliveredOrders = [];
-      if (!DB.reviewedSales) DB.reviewedSales = [];
-      if (!DB.config.logoIcon) DB.config.logoIcon = '💻';
-      if (!DB.categories.models) DB.categories.models = {};
-      if (!DB.config.textColors) DB.config.textColors = { main: '#1A1A2E', secondary: '#555', tertiary: '#888', border: '#E0E0E0', bg: '#F5F5F5', surface: '#FFF' };
-      if (DB.config.autoContrast === undefined) DB.config.autoContrast = false;
-      if (!DB.config.bgType) DB.config.bgType = 'default';
-      if (!DB.config.bgFitMode) DB.config.bgFitMode = 'cover';
-    }
+    if (db) { DB = { ...DB, ...JSON.parse(db) }; }
+    const banners = localStorage.getItem('techparts_banners');
+    if (banners) { const p = JSON.parse(banners); if (p.slides) bannersConfig = p; }
     const cartData = localStorage.getItem('techparts_cart');
     if (cartData) cart = JSON.parse(cartData);
-    const banners = localStorage.getItem('techparts_banners');
-    if (banners) { const parsed = JSON.parse(banners); if (parsed.slides) bannersConfig = parsed; }
     const user = localStorage.getItem('techparts_user');
     if (user) currentUser = JSON.parse(user);
-    console.log('✅ Datos cargados');
-  } catch(e) { console.error('Error cargando:', e); }
-  // Sincronizar Firebase en segundo plano después de que la app arrancó
-  setTimeout(function() {
-    if (!window._fbDB) return;
-    Promise.race([
-      Promise.all([
-        window._fbDB.collection('techparts').doc('db').get(),
-        window._fbDB.collection('techparts').doc('banners').get()
-      ]),
-      new Promise(function(_, rej) { setTimeout(function(){ rej('timeout'); }, 5000); })
-    ]).then(function(results) {
-      var fbDbSnap = results[0], fbBannersSnap = results[1];
-      var changed = false;
-      if (fbDbSnap.exists) {
-        var fbData = JSON.parse(fbDbSnap.data().value);
-        DB = { ...DB, ...fbData };
-        if (!DB.deliveredOrders) DB.deliveredOrders = [];
-        if (!DB.reviewedSales) DB.reviewedSales = [];
-        changed = true;
-      }
-      if (fbBannersSnap.exists) {
-        var fbBanners = JSON.parse(fbBannersSnap.data().value);
-        if (fbBanners.slides) { bannersConfig = fbBanners; changed = true; }
-      }
-      if (changed) {
-        applyStoredConfig(); renderProducts(); renderInventoryTable();
-        renderStats(); renderAllOrders(); renderDeliveredList();
-        renderClientsTable(); renderHistoryList(); renderNewSaleNotification();
-        renderBanners(); updateFooter(); updateHeaderLogo(); updateHeaderStoreName();
-        console.log('✅ Sincronizado con Firebase');
-      }
-    }).catch(function(e) { console.warn('Firebase no disponible:', e); });
+    fixDBFields();
+  } catch(e) { console.error('localStorage error:', e); }
+}
+function loadFullData() {
+  var hasLocalData = !!localStorage.getItem('techparts_db');
+  // Si tiene localStorage, mostrar al instante y luego sincronizar Firebase
+  if (hasLocalData) {
+    loadFromLocalStorage();
+  }
+  // Esperar a que Firebase esté listo (el SDK compat lo expone en window._fbDB)
+  var fbWait = 0;
+  var fbInterval = setInterval(function() {
+    fbWait += 100;
+    if (window._fbDB) {
+      clearInterval(fbInterval);
+      cargarDesdeFirebase(hasLocalData);
+    } else if (fbWait >= 8000) {
+      clearInterval(fbInterval);
+      console.warn('Firebase no cargó — usando solo localStorage');
+      if (!hasLocalData) renderAll(); // PC nueva sin datos locales ni Firebase
+    }
   }, 100);
   return true;
+}
+function cargarDesdeFirebase(yaTeníaDatosLocales) {
+  Promise.all([
+    window._fbDB.collection('techparts').doc('db').get(),
+    window._fbDB.collection('techparts').doc('banners').get()
+  ]).then(function(results) {
+    var snapDb = results[0], snapBanners = results[1];
+    var changed = false;
+    if (snapDb.exists) {
+      var fbData = JSON.parse(snapDb.data().value);
+      DB = { ...DB, ...fbData };
+      fixDBFields();
+      // Sincronizar localStorage con datos de Firebase
+      localStorage.setItem('techparts_db', JSON.stringify(DB));
+      changed = true;
+    }
+    if (snapBanners.exists) {
+      var fb = JSON.parse(snapBanners.data().value);
+      if (fb.slides) {
+        bannersConfig = fb;
+        localStorage.setItem('techparts_banners', JSON.stringify(bannersConfig));
+        changed = true;
+      }
+    }
+    if (changed || !yaTeníaDatosLocales) {
+      renderAll();
+      console.log('✅ Datos cargados desde Firebase');
+    }
+  }).catch(function(e) {
+    console.warn('Firebase query error:', e);
+    if (!yaTeníaDatosLocales) renderAll();
+  });
 }
 
 // ===== FUNCIONES PARA BANNERS =====
@@ -1772,7 +1796,22 @@ function switchAdminTab(tab,el){ document.querySelectorAll('.admin-tab').forEach
 function openUserMenu(){ if(!currentUser)return; document.getElementById('userProfileInfo').innerHTML=`<strong>${escapeHtml(currentUser.name)}</strong><br>✉️ ${escapeHtml(currentUser.email)}<br>${currentUser.phone?`📱 ${escapeHtml(currentUser.phone)}<br>`:''}${currentUser.address?`📍 ${escapeHtml(currentUser.address)}`:''}<button class="btn-secondary" style="margin-top:12px" onclick="openEditProfileModal()">✏️ Editar perfil</button>`; const myOrders=DB.orders.filter(o=>o.userId===currentUser.email); document.getElementById('myOrdersList').innerHTML=myOrders.length?myOrders.map(o=>renderOrderCard(o,false)).join(''):'<p>Sin pedidos</p>'; openModal('userMenuModal'); }
 function openEditProfileModal(){ if(!currentUser)return; const html=`<div class="modal-overlay" id="editProfileModal"><div class="modal-box"><div class="modal-header"><h2>✏️ Editar Perfil</h2><button class="modal-close" onclick="closeModal('editProfileModal')">✕</button></div><div class="modal-body"><div class="form-group"><label>Nombre</label><input type="text" id="editProfileName" value="${escapeHtml(currentUser.name)}"></div><div class="form-group"><label>Teléfono</label><input type="tel" id="editProfilePhone" value="${escapeHtml(currentUser.phone||'')}"></div><div class="form-group"><label>Dirección</label><input type="text" id="editProfileAddress" value="${escapeHtml(currentUser.address||'')}"></div><div class="form-group"><label>Nueva contraseña</label><input type="password" id="editProfilePassword" placeholder="Dejar vacío para no cambiar"></div><button class="btn-primary" onclick="saveProfileChanges()">Guardar</button><button class="btn-secondary" onclick="closeModal('editProfileModal')">Cancelar</button></div></div></div>`; document.body.insertAdjacentHTML('beforeend',html); document.getElementById('editProfileModal').classList.add('open'); }
 function saveProfileChanges(){ if(!currentUser)return; const newName=document.getElementById('editProfileName').value.trim(); const newPhone=document.getElementById('editProfilePhone').value.trim(); const newAddress=document.getElementById('editProfileAddress').value.trim(); const newPass=document.getElementById('editProfilePassword').value; if(!newName){ notify('⚠️ Nombre requerido','error'); return; } const idx=DB.users.findIndex(u=>u.email===currentUser.email); if(idx!==-1){ DB.users[idx].name=newName; DB.users[idx].phone=newPhone; DB.users[idx].address=newAddress; if(newPass.length>=6) DB.users[idx].password=newPass; } currentUser.name=newName; currentUser.phone=newPhone; currentUser.address=newAddress; if(newPass.length>=6) currentUser.password=newPass; saveFullData(); updateAuthUI(); closeModal('editProfileModal'); notify('✅ Perfil actualizado'); }
-(async function init(){ loadFullData(); seedDemoData(); applyStoredConfig(); renderProducts(); renderInventoryTable(); renderStats(); renderAllOrders(); renderDeliveredList(); renderClientsTable(); renderHistoryList(); renderNewSaleNotification(); renderLogoSelector(); renderSeasonalGrid(); renderBanners(); updateFooter(); updateHeaderLogo(); updateHeaderStoreName(); updateCartCount(); document.getElementById('footerYear').textContent=new Date().getFullYear(); setTimeout(()=>{ const pl=document.getElementById('pageLoading'); if(pl){ pl.style.opacity='0'; setTimeout(()=>pl.style.display='none',500); } if(!bgSelectorInitialized){ createBgSelectorModal(); bgSelectorInitialized=true; } addBgSelectorButton(); },800); })();
+(function init(){
+  var hasLocal = !!localStorage.getItem('techparts_db');
+  loadFullData();
+  seedDemoData();
+  // Si tiene datos locales, renderizar de inmediato
+  // Si no tiene (PC nueva), Firebase llamará renderAll() cuando cargue
+  if (hasLocal) {
+    applyStoredConfig(); renderProducts(); renderInventoryTable(); renderStats(); renderAllOrders(); renderDeliveredList(); renderClientsTable(); renderHistoryList(); renderNewSaleNotification(); renderLogoSelector(); renderSeasonalGrid(); renderBanners(); updateFooter(); updateHeaderLogo(); updateHeaderStoreName(); updateCartCount();
+  } else {
+    // Mostrar pantalla de carga hasta que Firebase responda
+    renderLogoSelector(); renderSeasonalGrid();
+    document.getElementById('footerYear').textContent=new Date().getFullYear();
+  }
+  document.getElementById('footerYear').textContent=new Date().getFullYear();
+  setTimeout(()=>{ const pl=document.getElementById('pageLoading'); if(pl){ pl.style.opacity='0'; setTimeout(()=>pl.style.display='none',500); } if(!bgSelectorInitialized){ createBgSelectorModal(); bgSelectorInitialized=true; } addBgSelectorButton(); }, hasLocal ? 800 : 3000);
+})();
 setInterval(()=>{ saveFullData(); },30000);
 </script>
 
