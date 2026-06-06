@@ -1113,8 +1113,7 @@ footer {
 <script type="module">
   // ===== IMPORTAR FIREBASE =====
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-  import { getFirestore, collection, doc, getDocs, addDoc, updateDoc, deleteDoc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-  import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-analytics.js";
+  import { getFirestore, collection, doc, getDocs, setDoc, deleteDoc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
   
   // Configuración de Firebase
   const firebaseConfig = {
@@ -1129,8 +1128,9 @@ footer {
 
   // Inicializar Firebase
   const app = initializeApp(firebaseConfig);
-  const analytics = getAnalytics(app);
   const db = getFirestore(app);
+  
+  console.log("🔥 Firebase inicializado correctamente");
   
   // ===== DATOS GLOBALES =====
   let DB = {
@@ -1224,28 +1224,29 @@ footer {
 
   // ===== FUNCIONES DE FIRESTORE =====
   
-  // Cargar datos desde Firestore
   async function loadFullData() {
     try {
+      console.log("Cargando datos desde Firestore...");
+      
       // Cargar productos
       const productsSnap = await getDocs(collection(db, 'products'));
       DB.products = productsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      console.log(`✅ ${DB.products.length} productos cargados`);
       
       // Cargar usuarios
       const usersSnap = await getDocs(collection(db, 'users'));
       DB.users = usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      console.log(`✅ ${DB.users.length} usuarios cargados`);
       
       // Cargar pedidos
       const ordersSnap = await getDocs(collection(db, 'orders'));
       DB.orders = ordersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      console.log(`✅ ${DB.orders.length} pedidos cargados`);
       
       // Cargar entregados
       const deliveredSnap = await getDocs(collection(db, 'deliveredOrders'));
       DB.deliveredOrders = deliveredSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      
-      // Cargar revisados
-      const reviewedSnap = await getDocs(collection(db, 'reviewedSales'));
-      DB.reviewedSales = reviewedSnap.docs.map(doc => doc.id);
+      console.log(`✅ ${DB.deliveredOrders.length} entregas cargadas`);
       
       // Cargar config
       const configDoc = await getDoc(doc(db, 'config', 'main'));
@@ -1265,16 +1266,27 @@ footer {
         DB.categories = catsDoc.data();
       }
       
-      console.log('✅ Datos cargados desde Firestore');
+      console.log('✅ Todos los datos cargados desde Firestore');
       return true;
     } catch (error) {
       console.error('Error cargando datos:', error);
-      notify('⚠️ Error al conectar con la base de datos', 'error');
+      notify('⚠️ Error al conectar con la base de datos. Usando datos locales.', 'error');
+      
+      // Si no hay conexión, intentar cargar desde localStorage como respaldo
+      const localDb = localStorage.getItem('techparts_db');
+      if (localDb) {
+        const parsed = JSON.parse(localDb);
+        DB.products = parsed.products || [];
+        DB.users = parsed.users || [];
+        DB.orders = parsed.orders || [];
+        DB.deliveredOrders = parsed.deliveredOrders || [];
+        if (parsed.config) DB.config = { ...DB.config, ...parsed.config };
+        console.log('✅ Datos cargados desde localStorage (modo offline)');
+      }
       return false;
     }
   }
   
-  // Guardar datos en Firestore
   async function saveFullData() {
     try {
       // Guardar productos
@@ -1297,11 +1309,6 @@ footer {
         await setDoc(doc(db, 'deliveredOrders', delivered.id || delivered.orderId), delivered);
       }
       
-      // Guardar revisados
-      for (const reviewed of DB.reviewedSales) {
-        await setDoc(doc(db, 'reviewedSales', reviewed), { id: reviewed });
-      }
-      
       // Guardar config
       await setDoc(doc(db, 'config', 'main'), DB.config);
       
@@ -1311,32 +1318,29 @@ footer {
       // Guardar categorías
       await setDoc(doc(db, 'categories', 'main'), DB.categories);
       
-      console.log('✅ Datos guardados en Firestore');
+      // También guardar en localStorage como respaldo
+      localStorage.setItem('techparts_db', JSON.stringify(DB));
+      
+      console.log('✅ Datos guardados en Firestore y localStorage');
     } catch (error) {
       console.error('Error guardando datos:', error);
+      // Guardar solo en localStorage como respaldo
+      localStorage.setItem('techparts_db', JSON.stringify(DB));
     }
   }
   
-  // Guardar producto individual
   async function saveProductToFirestore(product) {
     await setDoc(doc(db, 'products', product.id), product);
   }
   
-  // Eliminar producto
   async function deleteProductFromFirestore(productId) {
     await deleteDoc(doc(db, 'products', productId));
   }
   
-  // Guardar pedido individual
-  async function saveOrderToFirestore(order) {
-    await setDoc(doc(db, 'orders', order.id), order);
-  }
-  
-  // Actualizar estado de pedido
   async function updateOrderStatusInFirestore(orderId, status) {
     await updateDoc(doc(db, 'orders', orderId), { status: status });
   }
-  
+
   // ===== FUNCIONES DE AUTENTICACIÓN =====
   function normalizeStr(str) { return str ? str.toLowerCase().trim() : ''; }
   
@@ -1515,7 +1519,6 @@ footer {
     } else { 
       cart.push({ id, qty: 1 }); 
     } 
-    saveFullData(); 
     saveCart();
     updateCartCount(); 
     notify(`✅ "${p.name}" agregado`); 
@@ -1556,7 +1559,6 @@ footer {
     cart[idx].qty += delta; 
     if (cart[idx].qty <= 0) cart.splice(idx, 1); 
     else if (p && cart[idx].qty > p.stock) { cart[idx].qty = p.stock; notify('⚠️ Stock máximo', 'info'); } 
-    saveFullData(); 
     saveCart();
     updateCartCount(); 
     renderCart(); 
@@ -1564,7 +1566,6 @@ footer {
   
   function removeFromCart(id) { 
     cart = cart.filter(c => c.id !== id); 
-    saveFullData(); 
     saveCart();
     updateCartCount(); 
     renderCart(); 
@@ -1572,7 +1573,6 @@ footer {
   
   function clearCart() { 
     cart = []; 
-    saveFullData(); 
     saveCart();
     updateCartCount(); 
     renderCart(); 
@@ -1614,7 +1614,7 @@ footer {
     const orderId = 'ORD-' + Date.now().toString(36).toUpperCase(); 
     const order = { id: orderId, userId: currentUser.email, userName: name, address: address, phone: document.getElementById('chkPhone').value, email: document.getElementById('chkEmail').value || currentUser.email, notes: document.getElementById('chkNotes').value, payment: window._selectedPayment, items: orderItems, total: total, status: 'Pendiente', date: new Date().toLocaleString() }; 
     DB.orders.unshift(order); 
-    await saveOrderToFirestore(order);
+    await setDoc(doc(db, 'orders', orderId), order);
     cart = []; 
     saveCart();
     await saveFullData(); 
@@ -1888,8 +1888,8 @@ footer {
       const q = query.toLowerCase(); 
       clients = clients.filter(c => c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q) || (c.phone || '').includes(q)); 
     } 
-    if (!clients.length) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center">Sin clientes</span></tr>'; return; } 
-    tbody.innerHTML = clients.map(c => `<tr><td><strong>${escapeHtml(c.name)}</strong></td><td>${escapeHtml(c.email)}</td><td>${c.phone || '—'}</td><td>${c.address || '—'}</td><td><span class="badge" style="background:${c.role === 'admin' ? '#8B5CF6' : '#10B981'}">${c.role === 'admin' ? 'Admin' : 'Cliente'}</span></td><td><div class="tbl-actions"><button class="tbl-btn tbl-edit" onclick="openEditClientModal('${c.email}')">✏️</button><button class="tbl-btn tbl-del" onclick="deleteClientByAdmin('${c.email}')">🗑️</button><button class="tbl-btn btn-wa" onclick="sendWhatsAppToClient('${c.phone}', '${escapeHtml(c.name)}')">📱</button></div></td></tr>`).join(''); 
+    if (!clients.length) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center">Sin clientes</span></td>'; return; } 
+    tbody.innerHTML = clients.map(c => `<tr><td><strong>${escapeHtml(c.name)}</strong></td><td>${escapeHtml(c.email)}</span><td>${c.phone || '—'}</span><td>${c.address || '—'}</span><td><span class="badge" style="background:${c.role === 'admin' ? '#8B5CF6' : '#10B981'}">${c.role === 'admin' ? 'Admin' : 'Cliente'}</span></span><td><div class="tbl-actions"><button class="tbl-btn tbl-edit" onclick="openEditClientModal('${c.email}')">✏️</button><button class="tbl-btn tbl-del" onclick="deleteClientByAdmin('${c.email}')">🗑️</button><button class="tbl-btn btn-wa" onclick="sendWhatsAppToClient('${c.phone}', '${escapeHtml(c.name)}')">📱</button></div></span></tr>`).join(''); 
   }
   
   function openEditClientModal(email) { 
@@ -1952,8 +1952,8 @@ footer {
       const q = query.toLowerCase(); 
       prods = prods.filter(p => p.name.toLowerCase().includes(q) || (p.partNumber || '').toLowerCase().includes(q)); 
     } 
-    if (!prods.length) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center">Sin productos</td></tr>'; return; } 
-    tbody.innerHTML = prods.map(p => `<tr><td><img class="tbl-img" src="${p.images?.[0] || 'https://via.placeholder.com/44'}" onerror="this.src='https://via.placeholder.com/44'"></td><td><strong>${escapeHtml(p.name)}</strong></td><td>${p.partNumber || '—'}</td><td>${[p.brand, p.model, p.partSpecific].filter(Boolean).join(' › ')}</td><td>$${formatNum(p.finalPrice)}</td><td><span style="color:${p.stock === 0 ? 'red' : p.stock < 5 ? 'orange' : 'green'}">${p.stock}</span><div class="stock-bar"><div class="stock-fill" style="width:${Math.min(100, p.stock * 5)}%;background:${p.stock === 0 ? 'red' : p.stock < 5 ? 'orange' : 'green'}"></div></div></td><td>${p.badge ? `<span class="badge badge-${p.badge.toLowerCase()}">${p.badge}</span>` : '—'}</td><td><div class="tbl-actions"><button class="tbl-btn tbl-edit" onclick="openAddProduct('${p.id}')">✏️</button><button class="tbl-btn tbl-del" onclick="deleteProduct('${p.id}')">🗑️</button></div></td></tr>`).join(''); 
+    if (!prods.length) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center">Sin productos</span></tr>'; return; } 
+    tbody.innerHTML = prods.map(p => `<tr><td><img class="tbl-img" src="${p.images?.[0] || 'https://via.placeholder.com/44'}" onerror="this.src='https://via.placeholder.com/44'"></td><td><strong>${escapeHtml(p.name)}</strong></span><td>${p.partNumber || '—'}</span><td>${[p.brand, p.model, p.partSpecific].filter(Boolean).join(' › ')}</span><td>$${formatNum(p.finalPrice)}</span><td><span style="color:${p.stock === 0 ? 'red' : p.stock < 5 ? 'orange' : 'green'}">${p.stock}</span><div class="stock-bar"><div class="stock-fill" style="width:${Math.min(100, p.stock * 5)}%;background:${p.stock === 0 ? 'red' : p.stock < 5 ? 'orange' : 'green'}"></div></div></span><td>${p.badge ? `<span class="badge badge-${p.badge.toLowerCase()}">${p.badge}</span>` : '—'}</span><td><div class="tbl-actions"><button class="tbl-btn tbl-edit" onclick="openAddProduct('${p.id}')">✏️</button><button class="tbl-btn tbl-del" onclick="deleteProduct('${p.id}')">🗑️</button></div></span></tr>`).join(''); 
   }
   
   function openAddProduct(id) { 
@@ -2569,8 +2569,6 @@ footer {
   // ===== FUNCIONES PARA FONDOS =====
   function openBgSelectorModal() { openModal('bgSelectorModal'); }
   
-  function previewBgUrlRealtime() { const url = document.getElementById('bgUrlInput').value.trim(); const preview = document.getElementById('bgPreviewImage'); if (url && preview) { preview.src = url; preview.onerror = () => { preview.src = ''; notify('❌ Error al cargar la imagen desde la URL', 'error'); }; } }
-  
   function setupFilePreview() { const fileInput = document.getElementById('bgFileInput'); if (fileInput && !fileInput.hasListener) { fileInput.hasListener = true; fileInput.addEventListener('change', function(e) { const file = e.target.files[0]; const preview = document.getElementById('bgFilePreview'); if (file && preview) { if (file.size > 5 * 1024 * 1024) { notify('⚠️ El archivo no debe superar los 5MB', 'error'); preview.src = ''; return; } const reader = new FileReader(); reader.onload = function(ev) { preview.src = ev.target.result; }; reader.readAsDataURL(file); } else if (preview) { preview.src = ''; } }); } }
   
   function applyUrlBg() { const url = document.getElementById('bgUrlInput').value.trim(); const fitMode = document.getElementById('bgFitMode').value; if (!url) { notify('⚠️ Ingresá una URL válida', 'error'); return; } document.body.style.backgroundImage = `url('${url}')`; document.body.style.backgroundRepeat = fitMode === 'repeat' ? 'repeat' : 'no-repeat'; document.body.style.backgroundPosition = 'center center'; document.body.style.backgroundAttachment = 'fixed'; if (fitMode === 'cover') { document.body.style.backgroundSize = 'cover'; } else if (fitMode === 'contain') { document.body.style.backgroundSize = 'contain'; document.body.style.backgroundColor = 'var(--bg)'; } else if (fitMode === 'repeat') { document.body.style.backgroundSize = 'auto'; } else if (fitMode === 'stretch') { document.body.style.backgroundSize = '100% 100%'; } DB.config.bgType = 'url'; DB.config.customBgUrl = url; DB.config.bgValue = url; DB.config.bgFitMode = fitMode; DB.config.autoSeasonal = false; DB.config.seasonalBg = null; saveFullData(); closeModal('bgSelectorModal'); notify('✅ Fondo por URL aplicado correctamente', 'success'); }
@@ -2653,107 +2651,6 @@ footer {
   function openEditProfileModal(){ if(!currentUser)return; const html=`<div class="modal-overlay" id="editProfileModal"><div class="modal-box"><div class="modal-header"><h2>✏️ Editar Perfil</h2><button class="modal-close" onclick="closeModal('editProfileModal')">✕</button></div><div class="modal-body"><div class="form-group"><label>Nombre</label><input type="text" id="editProfileName" value="${escapeHtml(currentUser.name)}"></div><div class="form-group"><label>Teléfono</label><input type="tel" id="editProfilePhone" value="${escapeHtml(currentUser.phone||'')}"></div><div class="form-group"><label>Dirección</label><input type="text" id="editProfileAddress" value="${escapeHtml(currentUser.address||'')}"></div><div class="form-group"><label>Nueva contraseña</label><input type="password" id="editProfilePassword" placeholder="Dejar vacío para no cambiar"></div><button class="btn-primary" onclick="saveProfileChanges()">Guardar</button><button class="btn-secondary" onclick="closeModal('editProfileModal')">Cancelar</button></div></div></div>`; document.body.insertAdjacentHTML('beforeend',html); document.getElementById('editProfileModal').classList.add('open'); }
   
   async function saveProfileChanges(){ if(!currentUser)return; const newName=document.getElementById('editProfileName').value.trim(); const newPhone=document.getElementById('editProfilePhone').value.trim(); const newAddress=document.getElementById('editProfileAddress').value.trim(); const newPass=document.getElementById('editProfilePassword').value; if(!newName){ notify('⚠️ Nombre requerido','error'); return; } const idx=DB.users.findIndex(u=>u.email===currentUser.email); if(idx!==-1){ DB.users[idx].name=newName; DB.users[idx].phone=newPhone; DB.users[idx].address=newAddress; if(newPass.length>=6) DB.users[idx].password=newPass; await setDoc(doc(db, 'users', currentUser.email), DB.users[idx]); } currentUser.name=newName; currentUser.phone=newPhone; currentUser.address=newAddress; if(newPass.length>=6) currentUser.password=newPass; await saveFullData(); updateAuthUI(); closeModal('editProfileModal'); notify('✅ Perfil actualizado'); }
-  
-  // ===== EXPOSER FUNCIONES GLOBALES =====
-  window.addToCart = addToCart;
-  window.openProduct = openProduct;
-  window.switchPdImg = switchPdImg;
-  window.handleSearch = handleSearch;
-  window.setFilter = setFilter;
-  window.openCartModal = openCartModal;
-  window.openCheckout = openCheckout;
-  window.selectPayment = selectPayment;
-  window.confirmOrder = confirmOrder;
-  window.changeQty = changeQty;
-  window.removeFromCart = removeFromCart;
-  window.clearCart = clearCart;
-  window.openShare = openShare;
-  window.shareProduct = shareProduct;
-  window.closeSharePanel = closeSharePanel;
-  window.openAuthModal = openAuthModal;
-  window.doLogin = doLogin;
-  window.doRegister = doRegister;
-  window.sendRecoveryEmail = sendRecoveryEmail;
-  window.switchAuthTab = switchAuthTab;
-  window.showRecovery = showRecovery;
-  window.showStore = showStore;
-  window.showAdmin = showAdmin;
-  window.openUserMenu = openUserMenu;
-  window.doLogout = doLogout;
-  window.openEditProfileModal = openEditProfileModal;
-  window.saveProfileChanges = saveProfileChanges;
-  window.updateOrderStatus = updateOrderStatus;
-  window.markAsDelivered = markAsDelivered;
-  window.sendOrderWhatsApp = sendOrderWhatsApp;
-  window.filterHistoryByStatus = filterHistoryByStatus;
-  window.renderHistoryList = renderHistoryList;
-  window.filterDeliveredList = filterDeliveredList;
-  window.editDeliveredRecord = editDeliveredRecord;
-  window.saveDeliveryEdit = saveDeliveryEdit;
-  window.deleteDeliveredRecord = deleteDeliveredRecord;
-  window.openReturnModal = openReturnModal;
-  window.processReturn = processReturn;
-  window.resendDeliveryWhatsApp = resendDeliveryWhatsApp;
-  window.exportDeliveredList = exportDeliveredList;
-  window.renderClientsTable = renderClientsTable;
-  window.openEditClientModal = openEditClientModal;
-  window.saveClientFromAdmin = saveClientFromAdmin;
-  window.deleteClientByAdmin = deleteClientByAdmin;
-  window.sendWhatsAppToClient = sendWhatsAppToClient;
-  window.renderInventoryTable = renderInventoryTable;
-  window.openAddProduct = openAddProduct;
-  window.saveProduct = saveProduct;
-  window.clearProductForm = clearProductForm;
-  window.deleteProduct = deleteProduct;
-  window.updateCatModel = updateCatModel;
-  window.updateCatParts = updateCatParts;
-  window.addNewCatValue = addNewCatValue;
-  window.calcFinalPrice = calcFinalPrice;
-  window.toggleBadge = toggleBadge;
-  window.uploadLocalImage = uploadLocalImage;
-  window.addPhotoUrlManually = addPhotoUrlManually;
-  window.removePhoto = removePhoto;
-  window.updatePhotoPreview = updatePhotoPreview;
-  window.renderPhotoList = renderPhotoList;
-  window.fileToBase64 = fileToBase64;
-  window.exportDB = exportDB;
-  window.triggerImport = triggerImport;
-  window.importDB = importDB;
-  window.openModal = openModal;
-  window.closeModal = closeModal;
-  window.applyTheme = applyTheme;
-  window.applyColor = applyColor;
-  window.applyFont = applyFont;
-  window.selectLogo = selectLogo;
-  window.saveIdentity = saveIdentity;
-  window.updateIdentityPreview = updateIdentityPreview;
-  window.openTextColorModal = openTextColorModal;
-  window.saveTextColors = saveTextColors;
-  window.resetTextColors = resetTextColors;
-  window.toggleAutoContrast = toggleAutoContrast;
-  window.openBgSelectorModal = openBgSelectorModal;
-  window.selectFitMode = selectFitMode;
-  window.applyUrlBg = applyUrlBg;
-  window.applyFileBg = applyFileBg;
-  window.setPresetBg = setPresetBg;
-  window.resetBgToDefault = resetBgToDefault;
-  window.applySeasonalBg = applySeasonalBg;
-  window.resetToDefaultBg = resetToDefaultBg;
-  window.setAutoSeasonalBg = setAutoSeasonalBg;
-  window.filterByBannerSearch = filterByBannerSearch;
-  window.uploadBannerImage = uploadBannerImage;
-  window.updateBannerColor = updateBannerColor;
-  window.openBannerConfigModal = openBannerConfigModal;
-  window.addNewBanner = addNewBanner;
-  window.deleteBanner = deleteBanner;
-  window.saveAllBanners = saveAllBanners;
-  window.updateBannerImageFromUrl = updateBannerImageFromUrl;
-  window.addBannerImageUrl = addBannerImageUrl;
-  window.toggleBannerActive = toggleBannerActive;
-  window.goToBannerSlide = goToBannerSlide;
-  window.scrollToOrder = scrollToOrder;
-  window.markSaleAsReviewed = markSaleAsReviewed;
-  window.switchAdminTab = switchAdminTab;
   
   // ===== INICIALIZACIÓN =====
   (async function init() {
