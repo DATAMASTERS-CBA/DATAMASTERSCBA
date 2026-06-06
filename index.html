@@ -6,7 +6,7 @@
 <title>TechParts Store</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-<!-- Firebase carga primero para estar listo antes que el script principal -->
+<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script>
@@ -20,8 +20,11 @@ try {
     appId: "1:361433365644:web:bd81e4e92d1bd36518cfa9"
   });
   window._fbDB = firebase.firestore();
-  console.log('Firebase OK');
-} catch(e) { window._fbDB = null; console.warn('Firebase error:', e); }
+  console.log('Firebase conectado');
+} catch(e) { 
+  window._fbDB = null; 
+  console.warn('Firebase error:', e); 
+}
 </script>
 <style>
 /* ===== CSS VARIABLES / THEMES ===== */
@@ -1036,7 +1039,7 @@ footer {
             <table class="inv-table">
               <thead><tr><th>Imagen</th><th>Nombre</th><th>N° Parte</th><th>Categoría</th><th>Precio</th><th>Stock</th><th>Badge</th><th>Acciones</th></tr></thead>
               <tbody id="invTbody"></tbody>
-            </table>
+            <\/table>
           </div>
         </div>
         <div id="addProductSidebar">
@@ -1075,7 +1078,7 @@ footer {
 
     <div class="admin-section" id="tab-delivered"><h3 style="margin-bottom:20px;font-size:1.05rem;font-weight:700">✅ Productos Retirados / Entregados</h3><div class="inv-toolbar"><input type="text" id="deliveredSearch" placeholder="Buscar por pedido, cliente o producto..." oninput="filterDeliveredList(this.value)"><button class="tbl-btn tbl-edit" onclick="exportDeliveredList()">📥 Exportar Lista</button></div><div id="deliveredListContainer" class="delivered-products-list"></div></div>
 
-    <div class="admin-section" id="tab-clients"><h3 style="margin-bottom:20px;font-size:1.05rem;font-weight:700">👥 Base de Datos de Clientes</h3><div class="inv-toolbar"><input type="text" id="clientsSearch" placeholder="Buscar por nombre, email o teléfono..." oninput="renderClientsTable(this.value)"></div><div class="inv-table-wrap"><table class="inv-table"><thead><tr><th>Nombre</th><th>Email</th><th>Teléfono</th><th>Dirección</th><th>Rol</th><th>Acciones</th></tr></thead><tbody id="clientsTableBody"></tbody></table></div></div>
+    <div class="admin-section" id="tab-clients"><h3 style="margin-bottom:20px;font-size:1.05rem;font-weight:700">👥 Base de Datos de Clientes</h3><div class="inv-toolbar"><input type="text" id="clientsSearch" placeholder="Buscar por nombre, email o teléfono..." oninput="renderClientsTable(this.value)"></div><div class="inv-table-wrap"><table class="inv-table"><thead><tr><th>Nombre</th><th>Email</th><th>Teléfono</th><th>Dirección</th><th>Rol</th><th>Acciones</th></tr></thead><tbody id="clientsTableBody"></tbody><\/table></div></div>
 
     <div class="admin-section" id="tab-branding">
       <div id="bgSelectorButtonContainer" style="margin-bottom:20px"></div>
@@ -1204,6 +1207,127 @@ function formatNum(n) { return Number(n).toLocaleString('es-AR', { minimumFracti
 function stockLabel(s) { if (s >= 10) return `✅ ${s} en stock`; if (s > 0) return `⚠️ Últimas ${s} unidades`; return `❌ Sin stock`; }
 function notify(msg, type = 'info') { const c = document.getElementById('notifContainer'); if (!c) return; const d = document.createElement('div'); d.className = `notif ${type}`; const icons = { success: '✅', error: '❌', info: 'ℹ️' }; d.innerHTML = `<span class="notif-icon">${icons[type] || 'ℹ️'}</span><span>${escapeHtml(msg)}</span>`; c.appendChild(d); setTimeout(() => { d.style.opacity = '0'; d.style.transform = 'translateX(60px)'; setTimeout(() => d.remove(), 300); }, 3500); }
 
+// ===== SINCRONIZACIÓN CON FIREBASE (CORREGIDA) =====
+function syncToFirebase() {
+  try {
+    var fbdb = window._fbDB;
+    if (fbdb) {
+      // Crear copia limpia para Firebase
+      var cleanDB = JSON.parse(JSON.stringify(DB));
+      fbdb.collection('techparts').doc('db').set({ v: JSON.stringify(cleanDB), updatedAt: new Date().toISOString() })
+        .then(() => console.log('✅ Sincronizado a Firebase'))
+        .catch(e => console.warn('Error en sync Firebase:', e));
+      fbdb.collection('techparts').doc('banners').set({ v: JSON.stringify(bannersConfig) })
+        .catch(e => console.warn('Error banners sync:', e));
+    }
+  } catch(e) { console.warn('syncToFirebase error:', e); }
+}
+
+function saveFullData() {
+  try {
+    localStorage.setItem('techparts_db', JSON.stringify(DB));
+    localStorage.setItem('techparts_cart', JSON.stringify(cart));
+    localStorage.setItem('techparts_banners', JSON.stringify(bannersConfig));
+    if (currentUser) localStorage.setItem('techparts_user', JSON.stringify(currentUser));
+    else localStorage.removeItem('techparts_user');
+  } catch(e) {}
+  // Sincronizar con Firebase inmediatamente
+  syncToFirebase();
+}
+
+function loadFromFirebase() {
+  if (!window._fbDB) return;
+  var fbdb = window._fbDB;
+  Promise.all([
+    fbdb.collection('techparts').doc('db').get(),
+    fbdb.collection('techparts').doc('banners').get()
+  ]).then(function(snaps) {
+    var changed = false;
+    if (snaps[0].exists) {
+      try {
+        var d = JSON.parse(snaps[0].data().v);
+        if (d && d.products !== undefined) {
+          // Mantener usuarios existentes si no hay en Firebase
+          var oldUsers = DB.users;
+          DB = d;
+          if (DB.users.length === 0 && oldUsers.length > 0) DB.users = oldUsers;
+          if (!DB.deliveredOrders) DB.deliveredOrders = [];
+          if (!DB.reviewedSales) DB.reviewedSales = [];
+          if (!DB.categories) DB.categories = { brands: ['HP','Dell','Lenovo','Asus','Acer','Samsung'], models: {}, parts: ['Pantalla','Teclado','Carcasa','Madre','Batería','Disco SSD','Memoria RAM'] };
+          if (!DB.config) DB.config = {
+            storeName: 'TechParts Store', slogan: 'Especialistas en repuestos', logoIcon: '💻',
+            wa: '+54 9 351 000-0000', email: 'contacto@techparts.com', address: 'Av. Colón 123',
+            hours: '9:00-18:00', days: 'Lun-Vie', theme: 'light', primaryColor: '#FFE600',
+            font: 'Plus Jakarta Sans', bgType: 'default', textColors: { main: '#1A1A2E', secondary: '#555', tertiary: '#888', border: '#E0E0E0', bg: '#F5F5F5', surface: '#FFF' }
+          };
+          localStorage.setItem('techparts_db', JSON.stringify(DB));
+          changed = true;
+        }
+      } catch(e) { console.warn('Error parseando Firebase DB:', e); }
+    }
+    if (snaps[1].exists) {
+      try {
+        var b = JSON.parse(snaps[1].data().v);
+        if (b && b.slides) {
+          bannersConfig = b;
+          localStorage.setItem('techparts_banners', JSON.stringify(bannersConfig));
+          changed = true;
+        }
+      } catch(e) {}
+    }
+    if (changed) {
+      applyStoredConfig();
+      renderProducts(); renderBanners(); renderInventoryTable();
+      renderStats(); renderAllOrders(); renderDeliveredList();
+      renderClientsTable(); renderHistoryList(); renderNewSaleNotification();
+      updateFooter(); updateHeaderLogo(); updateHeaderStoreName(); updateCartCount();
+      console.log('✅ Datos cargados desde Firebase');
+    }
+  }).catch(function(e) { console.warn('Firebase load error:', e); });
+}
+
+function loadFullData() {
+  try {
+    var raw = localStorage.getItem('techparts_db');
+    if (raw) { 
+      var parsed = JSON.parse(raw);
+      DB = Object.assign({}, DB, parsed);
+    }
+    var rawCart = localStorage.getItem('techparts_cart');
+    if (rawCart) cart = JSON.parse(rawCart);
+    var rawBanners = localStorage.getItem('techparts_banners');
+    if (rawBanners) { var pb = JSON.parse(rawBanners); if (pb.slides) bannersConfig = pb; }
+    var rawUser = localStorage.getItem('techparts_user');
+    if (rawUser) currentUser = JSON.parse(rawUser);
+    
+    if (!DB.deliveredOrders) DB.deliveredOrders = [];
+    if (!DB.reviewedSales) DB.reviewedSales = [];
+    if (!DB.categories) DB.categories = { brands: ['HP','Dell','Lenovo','Asus','Acer','Samsung'], models: {}, parts: ['Pantalla','Teclado','Carcasa','Madre','Batería','Disco SSD','Memoria RAM'] };
+    if (!DB.categories.models) DB.categories.models = {};
+    if (!DB.categories.parts) DB.categories.parts = ['Pantalla','Teclado','Carcasa','Madre','Batería','Disco SSD','Memoria RAM'];
+    if (!DB.config) DB.config = {
+      storeName: 'TechParts Store', slogan: 'Especialistas en repuestos', logoIcon: '💻',
+      wa: '+54 9 351 000-0000', email: 'contacto@techparts.com', address: 'Av. Colón 123',
+      hours: '9:00-18:00', days: 'Lun-Vie', theme: 'light', primaryColor: '#FFE600',
+      font: 'Plus Jakarta Sans', bgType: 'default', textColors: { main: '#1A1A2E', secondary: '#555', tertiary: '#888', border: '#E0E0E0', bg: '#F5F5F5', surface: '#FFF' }
+    };
+    if (!DB.config.textColors) DB.config.textColors = { main: '#1A1A2E', secondary: '#555', tertiary: '#888', border: '#E0E0E0', bg: '#F5F5F5', surface: '#FFF' };
+  } catch(e) { console.warn('localStorage error:', e); }
+  
+  // Cargar datos demo si no hay productos
+  if (DB.products.length === 0) {
+    DB.products = [
+      { id:'P001', name:'Pantalla LED 15.6" FHD IPS', description:'Pantalla de alta definición para notebooks', partNumber:'LP156WF6', brand:'HP', model:'Pavilion 15', componentType:'Interno', partSpecific:'Pantalla', images:['https://images.unsplash.com/photo-1593640408182-31c228b37ac2?w=400&h=400&fit=crop'], cost:45, margin:60, finalPrice:72, stock:8, badge:'Nuevo' },
+      { id:'P002', name:'Teclado HP Pavilion 15 Español', description:'Teclado retroiluminado', partNumber:'TPN-Q173', brand:'HP', model:'Pavilion 15', componentType:'Externo', partSpecific:'Teclado', images:['https://images.unsplash.com/photo-1541140532154-b024d705b90a?w=400&h=400&fit=crop'], cost:22, margin:50, finalPrice:33, stock:15, badge:'Nuevo' }
+    ];
+    DB.categories.models = { 'HP': ['Pavilion 15','Envy 13'], 'Dell': ['Inspiron 14'], 'Lenovo': ['ThinkPad T490'], 'Asus': ['ZenBook 14'], 'Samsung': ['Universal'] };
+  }
+  if (DB.users.length === 0) {
+    DB.users.push({ name: 'Cliente Demo', email: 'cliente@demo.com', phone: '+5493510000000', address: 'Calle Demo 123', password: 'cliente123', role: 'user', createdAt: new Date().toISOString() });
+  }
+  saveFullData();
+}
+
 // ===== FUNCIONES DE AUTENTICACIÓN =====
 function normalizeStr(str) { return str ? str.toLowerCase().trim() : ''; }
 function saveToAutocomplete(username, password) {
@@ -1289,7 +1413,7 @@ function doRegister() {
   const newUser = { name, email, phone, address, password: pass, role: 'user', createdAt: new Date().toISOString() };
   DB.users.push(newUser);
   currentUser = newUser;
-  saveFullData();
+  saveFullData();  // Esto ya sincroniza con Firebase
   updateAuthUI();
   saveToAutocomplete(email, pass);
   closeModal('authModal');
@@ -1310,121 +1434,6 @@ function updateAuthUI() { const authBtn = document.getElementById('authBtn'), us
 function openAuthModal() { document.getElementById('loginUser').value = ''; document.getElementById('loginPass').value = ''; document.getElementById('authRecovery').style.display = 'none'; document.getElementById('authLogin').style.display = 'block'; document.getElementById('authRegister').style.display = 'none'; openModal('authModal'); setTimeout(() => { loadAutocompleteForLogin(); setupUserDatalist(); }, 100); }
 function switchAuthTab(tab, el) { document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active')); if (el) el.classList.add('active'); document.getElementById('authLogin').style.display = tab === 'login' ? 'block' : 'none'; document.getElementById('authRegister').style.display = tab === 'register' ? 'block' : 'none'; document.getElementById('authRecovery').style.display = 'none'; }
 function showRecovery() { document.getElementById('authLogin').style.display = 'none'; document.getElementById('authRegister').style.display = 'none'; document.getElementById('authRecovery').style.display = 'block'; }
-
-// ===== FUNCIONES PARA GUARDAR/CARGAR =====
-function _fixDB() {
-  if (!DB.deliveredOrders) DB.deliveredOrders = [];
-  if (!DB.reviewedSales) DB.reviewedSales = [];
-  if (!DB.config.logoIcon) DB.config.logoIcon = '💻';
-  if (!DB.categories.models) DB.categories.models = {};
-  if (!DB.config.textColors) DB.config.textColors = { main:'#1A1A2E', secondary:'#555', tertiary:'#888', border:'#E0E0E0', bg:'#F5F5F5', surface:'#FFF' };
-  if (DB.config.autoContrast === undefined) DB.config.autoContrast = false;
-  if (!DB.config.bgType) DB.config.bgType = 'default';
-  if (!DB.config.bgFitMode) DB.config.bgFitMode = 'cover';
-}
-function saveFullData() {
-  try {
-    localStorage.setItem('techparts_db', JSON.stringify(DB));
-    localStorage.setItem('techparts_cart', JSON.stringify(cart));
-    localStorage.setItem('techparts_banners', JSON.stringify(bannersConfig));
-    if (currentUser) localStorage.setItem('techparts_user', JSON.stringify(currentUser));
-    else localStorage.removeItem('techparts_user');
-  } catch(e) {}
-  // Firebase en segundo plano
-  try {
-    var fbdb = window._fbDB;
-    if (fbdb) {
-      fbdb.collection('techparts').doc('db').set({ v: JSON.stringify(DB) })
-        .then(function(){ console.log('Firebase DB guardado OK'); })
-        .catch(function(e){ console.warn('Firebase save error:', e); });
-      fbdb.collection('techparts').doc('banners').set({ v: JSON.stringify(bannersConfig) })
-        .catch(function(e){ console.warn('Firebase banners error:', e); });
-    } else {
-      console.warn('saveFullData: Firebase no disponible aún');
-    }
-  } catch(e) { console.warn('saveFullData Firebase error:', e); }
-}
-function loadFullData() {
-  // SIEMPRE cargar localStorage primero (instantáneo, nunca falla)
-  try {
-    var raw = localStorage.getItem('techparts_db');
-    if (raw) { DB = Object.assign({}, DB, JSON.parse(raw)); }
-    var rawCart = localStorage.getItem('techparts_cart');
-    if (rawCart) cart = JSON.parse(rawCart);
-    var rawBanners = localStorage.getItem('techparts_banners');
-    if (rawBanners) { var pb = JSON.parse(rawBanners); if (pb.slides) bannersConfig = pb; }
-    var rawUser = localStorage.getItem('techparts_user');
-    if (rawUser) currentUser = JSON.parse(rawUser);
-    _fixDB();
-  } catch(e) { console.warn('localStorage error:', e); }
-  // Firebase: intentar sincronizar DESPUÉS de renderizar, sin bloquear nada
-  window._fbSyncPending = true;
-  return true;
-}
-function _syncFirebase() {
-  if (!window._fbSyncPending) return;
-  // Si Firebase todavía no cargó, reintentar hasta 10 segundos
-  if (!window._fbDB) {
-    if (!window._fbRetries) window._fbRetries = 0;
-    window._fbRetries++;
-    if (window._fbRetries < 20) { setTimeout(_syncFirebase, 500); return; }
-    console.warn('Firebase no disponible después de 10s');
-    return;
-  }
-  window._fbSyncPending = false;
-  var fbdb = window._fbDB;
-  try {
-    Promise.all([
-      fbdb.collection('techparts').doc('db').get(),
-      fbdb.collection('techparts').doc('banners').get()
-    ]).then(function(snaps) {
-      var changed = false;
-      if (snaps[0].exists) {
-        try {
-          var d = JSON.parse(snaps[0].data().v);
-          // Reemplazar completamente con datos de Firebase (no mezclar)
-          DB = d;
-          _fixDB();
-          localStorage.setItem('techparts_db', JSON.stringify(DB));
-          changed = true;
-        } catch(e) { console.warn('Error parseando Firebase DB:', e); }
-      }
-      if (snaps[1].exists) {
-        try {
-          var b = JSON.parse(snaps[1].data().v);
-          if (b && b.slides) {
-            bannersConfig = b;
-            localStorage.setItem('techparts_banners', JSON.stringify(bannersConfig));
-            changed = true;
-          }
-        } catch(e) {}
-      }
-      if (changed) {
-        applyStoredConfig();
-        renderProducts(); renderBanners(); renderInventoryTable();
-        renderStats(); renderAllOrders(); renderDeliveredList();
-        renderClientsTable(); renderHistoryList(); renderNewSaleNotification();
-        updateFooter(); updateHeaderLogo(); updateHeaderStoreName(); updateCartCount();
-        console.log('✅ Firebase sincronizado');
-      } else if (window._seedPending) {
-        // Firebase no tenía datos — ahora sí insertar demo data y guardar
-        window._seedPending = false;
-        var demoUser = { name: 'Cliente Demo', email: 'cliente@demo.com', phone: '+5493510000000', address: 'Calle Demo 123', password: 'cliente123', role: 'user', createdAt: new Date().toISOString() };
-        var demoProducts = [
-          { id:'P001', name:'Pantalla LED 15.6" FHD IPS', description:'Pantalla de alta definición para notebooks', partNumber:'LP156WF6', brand:'HP', model:'Pavilion 15', componentType:'Interno', partSpecific:'Pantalla', images:['https://images.unsplash.com/photo-1593640408182-31c228b37ac2?w=400&h=400&fit=crop'], cost:45, margin:60, finalPrice:72, stock:8, badge:'Nuevo' },
-          { id:'P002', name:'Teclado HP Pavilion 15 Español', description:'Teclado retroiluminado', partNumber:'TPN-Q173', brand:'HP', model:'Pavilion 15', componentType:'Externo', partSpecific:'Teclado', images:['https://images.unsplash.com/photo-1541140532154-b024d705b90a?w=400&h=400&fit=crop'], cost:22, margin:50, finalPrice:33, stock:15, badge:'Nuevo' }
-        ];
-        DB.products = demoProducts;
-        DB.categories.models = { 'HP': ['Pavilion 15','Envy 13'], 'Dell': ['Inspiron 14'], 'Lenovo': ['ThinkPad T490'], 'Asus': ['ZenBook 14'], 'Samsung': ['Universal'] };
-        if (DB.users.length === 0) DB.users.push(demoUser);
-        if (DB.orders.length === 0) DB.orders.push({ id:'ORD-DEMO001', userId:'cliente@demo.com', userName:'Cliente Demo', address:'Calle Demo 123', phone:'+5493510000000', email:'cliente@demo.com', payment:'Efectivo', items:[{id:'P001',name:'Pantalla LED 15.6" FHD IPS',qty:1,price:72}], total:72, status:'Confirmado', date:new Date().toLocaleString() });
-        saveFullData();
-        renderProducts(); renderBanners(); renderInventoryTable();
-        renderStats(); renderAllOrders(); renderClientsTable();
-      }
-    }).catch(function(e) { console.warn('Firebase sync error:', e); });
-  } catch(e) {}
-}
 
 // ===== FUNCIONES PARA BANNERS =====
 function filterByBannerSearch() {
@@ -1720,27 +1729,6 @@ function renderPhotoList() { const list = document.getElementById('photoList'); 
 function updatePhotoPreview(input, i) { photoUrls[i] = input.value; const img = input.previousElementSibling; if (img) img.src = input.value || 'https://via.placeholder.com/50?text=Preview'; }
 function removePhoto(i) { photoUrls.splice(i, 1); renderPhotoList(); notify('🗑️ Imagen eliminada', 'info'); }
 
-// ===== DEMO DATA =====
-function seedDemoData() {
-  // Solo insertar demo si no hay productos NI en localStorage NI pendiente de Firebase
-  if (DB.products.length > 0) return;
-  // Si Firebase está disponible, esperar a que responda antes de meter demo data
-  if (window._fbDB) { window._seedPending = true; return; }
-  const demos = [
-    { id:'P001', name:'Pantalla LED 15.6" FHD IPS', description:'Pantalla de alta definición para notebooks', partNumber:'LP156WF6', brand:'HP', model:'Pavilion 15', componentType:'Interno', partSpecific:'Pantalla', images:['https://images.unsplash.com/photo-1593640408182-31c228b37ac2?w=400&h=400&fit=crop'], cost:45, margin:60, finalPrice:72, stock:8, badge:'Nuevo' },
-    { id:'P002', name:'Teclado HP Pavilion 15 Español', description:'Teclado retroiluminado', partNumber:'TPN-Q173', brand:'HP', model:'Pavilion 15', componentType:'Externo', partSpecific:'Teclado', images:['https://images.unsplash.com/photo-1541140532154-b024d705b90a?w=400&h=400&fit=crop'], cost:22, margin:50, finalPrice:33, stock:15, badge:'Nuevo' }
-  ];
-  DB.products = demos;
-  DB.categories.models = { 'HP': ['Pavilion 15','Envy 13'], 'Dell': ['Inspiron 14'], 'Lenovo': ['ThinkPad T490'], 'Asus': ['ZenBook 14'], 'Samsung': ['Universal'] };
-  if (DB.users.length === 0) {
-    DB.users.push({ name: 'Cliente Demo', email: 'cliente@demo.com', phone: '+5493510000000', address: 'Calle Demo 123', password: 'cliente123', role: 'user', createdAt: new Date().toISOString() });
-  }
-  if (DB.orders.length === 0) {
-    DB.orders.push({ id: 'ORD-DEMO001', userId: 'cliente@demo.com', userName: 'Cliente Demo', address: 'Calle Demo 123', phone: '+5493510000000', email: 'cliente@demo.com', payment: 'Efectivo', items: [{ id: 'P001', name: 'Pantalla LED 15.6" FHD IPS', qty: 1, price: 72 }], total: 72, status: 'Confirmado', date: new Date().toLocaleString() });
-  }
-  saveFullData();
-}
-
 // ===== FUNCIONES BÁSICAS =====
 function renderProducts() { const grid = document.getElementById('productsGrid'); if (!grid) return; let prods = DB.products.filter(p => p && p.stock > 0); if (searchQuery) { const q = searchQuery.toLowerCase(); prods = prods.filter(p => (p.name || '').toLowerCase().includes(q) || (p.brand || '').toLowerCase().includes(q) || (p.model || '').toLowerCase().includes(q) || (p.partNumber || '').toLowerCase().includes(q) || (p.partSpecific || '').toLowerCase().includes(q) || (p.description || '').toLowerCase().includes(q)); } if (currentFilter !== 'all') prods = prods.filter(p => p.badge === currentFilter); const sort = document.getElementById('sortSelect')?.value || 'featured'; if (sort === 'price_asc') prods.sort((a,b) => (a.finalPrice||0) - (b.finalPrice||0)); else if (sort === 'price_desc') prods.sort((a,b) => (b.finalPrice||0) - (a.finalPrice||0)); else if (sort === 'az') prods.sort((a,b) => (a.name||'').localeCompare(b.name||'')); else if (sort === 'za') prods.sort((a,b) => (b.name||'').localeCompare(a.name||'')); const countSpan = document.getElementById('resultsCount'); if (countSpan) countSpan.textContent = `${prods.length} producto${prods.length !== 1 ? 's' : ''}`; if (prods.length === 0) { grid.innerHTML = `<div class="no-products" style="grid-column:1/-1"><div class="icon">🔍</div><h3>Sin resultados</h3><p>${searchQuery ? 'No se encontraron productos para "' + escapeHtml(searchQuery) + '"' : 'No hay productos disponibles'}</p></div>`; return; } grid.innerHTML = prods.map(p => `<div class="product-card" onclick="openProduct('${p.id}')"><div class="card-img-wrap"><img src="${p.images && p.images[0] ? p.images[0] : 'https://via.placeholder.com/300'}" alt="${escapeHtml(p.name)}" onerror="this.src='https://via.placeholder.com/300'"><div class="card-badges">${p.badge ? `<span class="badge badge-${p.badge.toLowerCase()}">${p.badge}</span>` : ''}</div></div><div class="card-body"><div class="card-brand">${[p.brand, p.model].filter(Boolean).join(' • ')}</div><div class="card-name">${escapeHtml(p.name)}</div>${p.partNumber ? `<div class="card-part">P/N: ${p.partNumber}</div>` : ''}<div class="card-price"><span class="currency">$</span>${formatNum(p.finalPrice)}</div><div class="card-stock">${stockLabel(p.stock)}</div></div><div class="card-footer"><button class="btn-cart" onclick="event.stopPropagation();addToCart('${p.id}')">🛒 Agregar</button><button class="btn-share" onclick="event.stopPropagation();openShare('${p.id}')">📤</button></div></div>`).join(''); }
 function handleSearch(val) { searchQuery = val; renderProducts(); }
@@ -1788,7 +1776,7 @@ function deleteClientByAdmin(email) { if (email === 'admin') { notify('⚠️ No
 function sendWhatsAppToClient(phone, name) { if (!phone) { notify('⚠️ Sin teléfono','error'); return; } const msg = encodeURIComponent(`Hola ${name}, somos de ${DB.config.storeName || 'TechParts'}. ¿Cómo podemos ayudarte?`); window.open(`https://wa.me/${phone.replace(/\D/g,'')}?text=${msg}`,'_blank'); }
 
 // ===== INVENTARIO =====
-function renderInventoryTable(query = '') { const tbody = document.getElementById('invTbody'); if (!tbody) return; let prods = [...DB.products]; if (query) { const q = query.toLowerCase(); prods = prods.filter(p => p.name.toLowerCase().includes(q) || (p.partNumber || '').toLowerCase().includes(q)); } if (!prods.length) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center">Sin productos</span></tr>'; return; } tbody.innerHTML = prods.map(p => `<tr><td><img class="tbl-img" src="${p.images?.[0] || 'https://via.placeholder.com/44'}" onerror="this.src='https://via.placeholder.com/44'"></td><td><strong>${escapeHtml(p.name)}</strong></span><td>${p.partNumber || '—'}</span><td>${[p.brand, p.model, p.partSpecific].filter(Boolean).join(' › ')}</span><td>$${formatNum(p.finalPrice)}</span><td><span style="color:${p.stock === 0 ? 'red' : p.stock < 5 ? 'orange' : 'green'}">${p.stock}</span><div class="stock-bar"><div class="stock-fill" style="width:${Math.min(100, p.stock * 5)}%;background:${p.stock === 0 ? 'red' : p.stock < 5 ? 'orange' : 'green'}"></div></div></span><td>${p.badge ? `<span class="badge badge-${p.badge.toLowerCase()}">${p.badge}</span>` : '—'}</span><td><div class="tbl-actions"><button class="tbl-btn tbl-edit" onclick="openAddProduct('${p.id}')">✏️</button><button class="tbl-btn tbl-del" onclick="deleteProduct('${p.id}')">🗑️</button></div></span></tr>`).join(''); }
+function renderInventoryTable(query = '') { const tbody = document.getElementById('invTbody'); if (!tbody) return; let prods = [...DB.products]; if (query) { const q = query.toLowerCase(); prods = prods.filter(p => p.name.toLowerCase().includes(q) || (p.partNumber || '').toLowerCase().includes(q)); } if (!prods.length) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center">Sin productos</span></tr>'; return; } tbody.innerHTML = prods.map(p => `<tr><td><img class="tbl-img" src="${p.images?.[0] || 'https://via.placeholder.com/44'}" onerror="this.src='https://via.placeholder.com/44'"></span><td><strong>${escapeHtml(p.name)}</strong></span><td>${p.partNumber || '—'}</span><td>${[p.brand, p.model, p.partSpecific].filter(Boolean).join(' › ')}</span><td>$${formatNum(p.finalPrice)}</span><td><span style="color:${p.stock === 0 ? 'red' : p.stock < 5 ? 'orange' : 'green'}">${p.stock}</span><div class="stock-bar"><div class="stock-fill" style="width:${Math.min(100, p.stock * 5)}%;background:${p.stock === 0 ? 'red' : p.stock < 5 ? 'orange' : 'green'}"></div></div></span><td>${p.badge ? `<span class="badge badge-${p.badge.toLowerCase()}">${p.badge}</span>` : '—'}</span><td><div class="tbl-actions"><button class="tbl-btn tbl-edit" onclick="openAddProduct('${p.id}')">✏️</button><button class="tbl-btn tbl-del" onclick="deleteProduct('${p.id}')">🗑️</button></div></span></tr>`).join(''); }
 function openAddProduct(id) { clearProductForm(); photoUrls = []; if (id) { const p = DB.products.find(x => x.id === id); if (!p) return; editingProductId = id; document.getElementById('formTitle').textContent = '✏️ Editar Producto'; document.getElementById('editingId').value = id; document.getElementById('pName').value = p.name || ''; document.getElementById('pPart').value = p.partNumber || ''; document.getElementById('pDescription').value = p.description || ''; document.getElementById('pCost').value = p.cost || ''; document.getElementById('pMargin').value = p.margin || ''; document.getElementById('pFinal').value = p.finalPrice; document.getElementById('pStock').value = p.stock; photoUrls = [...(p.images || [])]; selectedBadge = p.badge || ''; document.querySelectorAll('.badge-opt').forEach(b => b.classList.toggle('active', b.dataset.val === selectedBadge)); updateCatSelectors(); setTimeout(() => { if (document.getElementById('catBrand') && p.brand) document.getElementById('catBrand').value = p.brand; updateCatModel(); setTimeout(() => { if (document.getElementById('catModel') && p.model) document.getElementById('catModel').value = p.model; if (document.getElementById('catType') && p.componentType) document.getElementById('catType').value = p.componentType; updateCatParts(); if (document.getElementById('catPart') && p.partSpecific) document.getElementById('catPart').value = p.partSpecific; }, 50); }, 50); } else { editingProductId = null; document.getElementById('formTitle').textContent = '➕ Nuevo Producto'; document.getElementById('editingId').value = ''; updateCatSelectors(); } renderPhotoList(); calcFinalPrice(); }
 function clearProductForm() { editingProductId = null; document.getElementById('editingId').value = ''; document.getElementById('formTitle').textContent = '➕ Nuevo Producto'; document.getElementById('pName').value = ''; document.getElementById('pPart').value = ''; document.getElementById('pDescription').value = ''; document.getElementById('pCost').value = ''; document.getElementById('pMargin').value = ''; document.getElementById('pFinal').value = ''; document.getElementById('pStock').value = ''; photoUrls = []; selectedBadge = ''; document.querySelectorAll('.badge-opt').forEach(b => b.classList.remove('active')); renderPhotoList(); document.getElementById('priceCalcBox').style.display = 'none'; updateCatSelectors(); }
 function saveProduct() { const name = document.getElementById('pName').value.trim(); if (!name) { notify('⚠️ Nombre obligatorio','error'); return; } const finalPrice = parseFloat(document.getElementById('pFinal').value); if (!finalPrice || finalPrice <= 0) { notify('⚠️ Precio válido','error'); return; } const stock = parseInt(document.getElementById('pStock').value) || 0; const brand = document.getElementById('catBrand').value, model = document.getElementById('catModel').value, componentType = document.getElementById('catType').value, partSpecific = document.getElementById('catPart').value; const description = document.getElementById('pDescription').value.trim(); if (brand && !DB.categories.brands.includes(brand)) DB.categories.brands.push(brand); if (brand && model) { if (!DB.categories.models[brand]) DB.categories.models[brand] = []; if (!DB.categories.models[brand].includes(model)) DB.categories.models[brand].push(model); } if (partSpecific && !DB.categories.parts.includes(partSpecific)) DB.categories.parts.push(partSpecific); const product = { id: editingProductId || ('P' + Date.now()), name: name, description: description, partNumber: document.getElementById('pPart').value.trim(), brand: brand, model: model, componentType: componentType, partSpecific: partSpecific, images: photoUrls.filter(Boolean), cost: parseFloat(document.getElementById('pCost').value) || 0, margin: parseFloat(document.getElementById('pMargin').value) || 0, finalPrice: finalPrice, stock: stock, badge: selectedBadge }; if (editingProductId) { const idx = DB.products.findIndex(p => p.id === editingProductId); if (idx !== -1) DB.products[idx] = product; } else { DB.products.unshift(product); } saveFullData(); renderInventoryTable(); renderProducts(); renderStats(); clearProductForm(); notify(editingProductId ? '✅ Producto actualizado' : '✅ Producto creado'); }
@@ -1835,20 +1823,18 @@ function openEditProfileModal(){ if(!currentUser)return; const html=`<div class=
 function saveProfileChanges(){ if(!currentUser)return; const newName=document.getElementById('editProfileName').value.trim(); const newPhone=document.getElementById('editProfilePhone').value.trim(); const newAddress=document.getElementById('editProfileAddress').value.trim(); const newPass=document.getElementById('editProfilePassword').value; if(!newName){ notify('⚠️ Nombre requerido','error'); return; } const idx=DB.users.findIndex(u=>u.email===currentUser.email); if(idx!==-1){ DB.users[idx].name=newName; DB.users[idx].phone=newPhone; DB.users[idx].address=newAddress; if(newPass.length>=6) DB.users[idx].password=newPass; } currentUser.name=newName; currentUser.phone=newPhone; currentUser.address=newAddress; if(newPass.length>=6) currentUser.password=newPass; saveFullData(); updateAuthUI(); closeModal('editProfileModal'); notify('✅ Perfil actualizado'); }
 (function init(){
   loadFullData();
-  seedDemoData();
   applyStoredConfig();
   renderProducts(); renderInventoryTable(); renderStats(); renderAllOrders();
   renderDeliveredList(); renderClientsTable(); renderHistoryList();
   renderNewSaleNotification(); renderLogoSelector(); renderSeasonalGrid();
   renderBanners(); updateFooter(); updateHeaderLogo(); updateHeaderStoreName(); updateCartCount();
   document.getElementById('footerYear').textContent = new Date().getFullYear();
-  // Ocultar pantalla de carga SIEMPRE — sin importar Firebase
   var pl = document.getElementById('pageLoading');
   if (pl) { pl.style.opacity='0'; setTimeout(function(){ pl.style.display='none'; }, 500); }
   if (!bgSelectorInitialized) { createBgSelectorModal(); bgSelectorInitialized=true; }
   addBgSelectorButton();
-  // Sincronizar Firebase después de que la app ya está visible
-  setTimeout(_syncFirebase, 2000);
+  // Cargar desde Firebase después de iniciar
+  setTimeout(loadFromFirebase, 2000);
 })();
 setInterval(function(){ saveFullData(); }, 30000);
 </script>
