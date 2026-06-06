@@ -1295,6 +1295,16 @@ function switchAuthTab(tab, el) { document.querySelectorAll('.auth-tab').forEach
 function showRecovery() { document.getElementById('authLogin').style.display = 'none'; document.getElementById('authRegister').style.display = 'none'; document.getElementById('authRecovery').style.display = 'block'; }
 
 // ===== FUNCIONES PARA GUARDAR/CARGAR =====
+function _fixDB() {
+  if (!DB.deliveredOrders) DB.deliveredOrders = [];
+  if (!DB.reviewedSales) DB.reviewedSales = [];
+  if (!DB.config.logoIcon) DB.config.logoIcon = '💻';
+  if (!DB.categories.models) DB.categories.models = {};
+  if (!DB.config.textColors) DB.config.textColors = { main:'#1A1A2E', secondary:'#555', tertiary:'#888', border:'#E0E0E0', bg:'#F5F5F5', surface:'#FFF' };
+  if (DB.config.autoContrast === undefined) DB.config.autoContrast = false;
+  if (!DB.config.bgType) DB.config.bgType = 'default';
+  if (!DB.config.bgFitMode) DB.config.bgFitMode = 'cover';
+}
 function saveFullData() {
   try {
     localStorage.setItem('techparts_db', JSON.stringify(DB));
@@ -1302,94 +1312,73 @@ function saveFullData() {
     localStorage.setItem('techparts_banners', JSON.stringify(bannersConfig));
     if (currentUser) localStorage.setItem('techparts_user', JSON.stringify(currentUser));
     else localStorage.removeItem('techparts_user');
-    // Firebase en segundo plano — no bloquea
-    if (window._fbDB) {
-      window._fbDB.collection('techparts').doc('db').set({ value: JSON.stringify(DB) }).catch(e => console.warn('FB save:', e));
-      window._fbDB.collection('techparts').doc('banners').set({ value: JSON.stringify(bannersConfig) }).catch(e => console.warn('FB save:', e));
-    }
-  } catch(e) { console.error('Error guardando:', e); }
-}
-function fixDBFields() {
-  if (!DB.deliveredOrders) DB.deliveredOrders = [];
-  if (!DB.reviewedSales) DB.reviewedSales = [];
-  if (!DB.config.logoIcon) DB.config.logoIcon = '💻';
-  if (!DB.categories.models) DB.categories.models = {};
-  if (!DB.config.textColors) DB.config.textColors = { main: '#1A1A2E', secondary: '#555', tertiary: '#888', border: '#E0E0E0', bg: '#F5F5F5', surface: '#FFF' };
-  if (DB.config.autoContrast === undefined) DB.config.autoContrast = false;
-  if (!DB.config.bgType) DB.config.bgType = 'default';
-  if (!DB.config.bgFitMode) DB.config.bgFitMode = 'cover';
-}
-function renderAll() {
-  applyStoredConfig(); renderProducts(); renderInventoryTable();
-  renderStats(); renderAllOrders(); renderDeliveredList();
-  renderClientsTable(); renderHistoryList(); renderNewSaleNotification();
-  renderBanners(); updateFooter(); updateHeaderLogo(); updateHeaderStoreName(); updateCartCount();
-}
-function loadFromLocalStorage() {
+  } catch(e) {}
+  // Firebase totalmente en segundo plano — nunca bloquea
   try {
-    const db = localStorage.getItem('techparts_db');
-    if (db) { DB = { ...DB, ...JSON.parse(db) }; }
-    const banners = localStorage.getItem('techparts_banners');
-    if (banners) { const p = JSON.parse(banners); if (p.slides) bannersConfig = p; }
-    const cartData = localStorage.getItem('techparts_cart');
-    if (cartData) cart = JSON.parse(cartData);
-    const user = localStorage.getItem('techparts_user');
-    if (user) currentUser = JSON.parse(user);
-    fixDBFields();
-  } catch(e) { console.error('localStorage error:', e); }
+    var fbdb = window._fbDB;
+    if (fbdb) {
+      fbdb.collection('techparts').doc('db').set({ v: JSON.stringify(DB) });
+      fbdb.collection('techparts').doc('banners').set({ v: JSON.stringify(bannersConfig) });
+    }
+  } catch(e) {}
 }
 function loadFullData() {
-  var hasLocalData = !!localStorage.getItem('techparts_db');
-  // Si tiene localStorage, mostrar al instante y luego sincronizar Firebase
-  if (hasLocalData) {
-    loadFromLocalStorage();
-  }
-  // Esperar a que Firebase esté listo (el SDK compat lo expone en window._fbDB)
-  var fbWait = 0;
-  var fbInterval = setInterval(function() {
-    fbWait += 100;
-    if (window._fbDB) {
-      clearInterval(fbInterval);
-      cargarDesdeFirebase(hasLocalData);
-    } else if (fbWait >= 8000) {
-      clearInterval(fbInterval);
-      console.warn('Firebase no cargó — usando solo localStorage');
-      if (!hasLocalData) renderAll(); // PC nueva sin datos locales ni Firebase
-    }
-  }, 100);
+  // SIEMPRE cargar localStorage primero (instantáneo, nunca falla)
+  try {
+    var raw = localStorage.getItem('techparts_db');
+    if (raw) { DB = Object.assign({}, DB, JSON.parse(raw)); }
+    var rawCart = localStorage.getItem('techparts_cart');
+    if (rawCart) cart = JSON.parse(rawCart);
+    var rawBanners = localStorage.getItem('techparts_banners');
+    if (rawBanners) { var pb = JSON.parse(rawBanners); if (pb.slides) bannersConfig = pb; }
+    var rawUser = localStorage.getItem('techparts_user');
+    if (rawUser) currentUser = JSON.parse(rawUser);
+    _fixDB();
+  } catch(e) { console.warn('localStorage error:', e); }
+  // Firebase: intentar sincronizar DESPUÉS de renderizar, sin bloquear nada
+  window._fbSyncPending = true;
   return true;
 }
-function cargarDesdeFirebase(yaTeníaDatosLocales) {
-  Promise.all([
-    window._fbDB.collection('techparts').doc('db').get(),
-    window._fbDB.collection('techparts').doc('banners').get()
-  ]).then(function(results) {
-    var snapDb = results[0], snapBanners = results[1];
-    var changed = false;
-    if (snapDb.exists) {
-      var fbData = JSON.parse(snapDb.data().value);
-      DB = { ...DB, ...fbData };
-      fixDBFields();
-      // Sincronizar localStorage con datos de Firebase
-      localStorage.setItem('techparts_db', JSON.stringify(DB));
-      changed = true;
-    }
-    if (snapBanners.exists) {
-      var fb = JSON.parse(snapBanners.data().value);
-      if (fb.slides) {
-        bannersConfig = fb;
-        localStorage.setItem('techparts_banners', JSON.stringify(bannersConfig));
-        changed = true;
+function _syncFirebase() {
+  if (!window._fbSyncPending) return;
+  window._fbSyncPending = false;
+  var fbdb = window._fbDB;
+  if (!fbdb) return;
+  try {
+    Promise.all([
+      fbdb.collection('techparts').doc('db').get(),
+      fbdb.collection('techparts').doc('banners').get()
+    ]).then(function(snaps) {
+      var changed = false;
+      if (snaps[0].exists) {
+        try {
+          var d = JSON.parse(snaps[0].data().v);
+          DB = Object.assign({}, DB, d);
+          _fixDB();
+          localStorage.setItem('techparts_db', JSON.stringify(DB));
+          changed = true;
+        } catch(e) {}
       }
-    }
-    if (changed || !yaTeníaDatosLocales) {
-      renderAll();
-      console.log('✅ Datos cargados desde Firebase');
-    }
-  }).catch(function(e) {
-    console.warn('Firebase query error:', e);
-    if (!yaTeníaDatosLocales) renderAll();
-  });
+      if (snaps[1].exists) {
+        try {
+          var b = JSON.parse(snaps[1].data().v);
+          if (b && b.slides) {
+            bannersConfig = b;
+            localStorage.setItem('techparts_banners', JSON.stringify(bannersConfig));
+            changed = true;
+          }
+        } catch(e) {}
+      }
+      if (changed) {
+        applyStoredConfig();
+        renderProducts(); renderBanners(); renderInventoryTable();
+        renderStats(); renderAllOrders(); renderDeliveredList();
+        renderClientsTable(); renderHistoryList(); renderNewSaleNotification();
+        updateFooter(); updateHeaderLogo(); updateHeaderStoreName(); updateCartCount();
+        console.log('✅ Firebase sincronizado');
+      }
+    }).catch(function(e) { console.warn('Firebase sync error:', e); });
+  } catch(e) {}
 }
 
 // ===== FUNCIONES PARA BANNERS =====
@@ -1797,43 +1786,41 @@ function openUserMenu(){ if(!currentUser)return; document.getElementById('userPr
 function openEditProfileModal(){ if(!currentUser)return; const html=`<div class="modal-overlay" id="editProfileModal"><div class="modal-box"><div class="modal-header"><h2>✏️ Editar Perfil</h2><button class="modal-close" onclick="closeModal('editProfileModal')">✕</button></div><div class="modal-body"><div class="form-group"><label>Nombre</label><input type="text" id="editProfileName" value="${escapeHtml(currentUser.name)}"></div><div class="form-group"><label>Teléfono</label><input type="tel" id="editProfilePhone" value="${escapeHtml(currentUser.phone||'')}"></div><div class="form-group"><label>Dirección</label><input type="text" id="editProfileAddress" value="${escapeHtml(currentUser.address||'')}"></div><div class="form-group"><label>Nueva contraseña</label><input type="password" id="editProfilePassword" placeholder="Dejar vacío para no cambiar"></div><button class="btn-primary" onclick="saveProfileChanges()">Guardar</button><button class="btn-secondary" onclick="closeModal('editProfileModal')">Cancelar</button></div></div></div>`; document.body.insertAdjacentHTML('beforeend',html); document.getElementById('editProfileModal').classList.add('open'); }
 function saveProfileChanges(){ if(!currentUser)return; const newName=document.getElementById('editProfileName').value.trim(); const newPhone=document.getElementById('editProfilePhone').value.trim(); const newAddress=document.getElementById('editProfileAddress').value.trim(); const newPass=document.getElementById('editProfilePassword').value; if(!newName){ notify('⚠️ Nombre requerido','error'); return; } const idx=DB.users.findIndex(u=>u.email===currentUser.email); if(idx!==-1){ DB.users[idx].name=newName; DB.users[idx].phone=newPhone; DB.users[idx].address=newAddress; if(newPass.length>=6) DB.users[idx].password=newPass; } currentUser.name=newName; currentUser.phone=newPhone; currentUser.address=newAddress; if(newPass.length>=6) currentUser.password=newPass; saveFullData(); updateAuthUI(); closeModal('editProfileModal'); notify('✅ Perfil actualizado'); }
 (function init(){
-  var hasLocal = !!localStorage.getItem('techparts_db');
   loadFullData();
   seedDemoData();
-  // Si tiene datos locales, renderizar de inmediato
-  // Si no tiene (PC nueva), Firebase llamará renderAll() cuando cargue
-  if (hasLocal) {
-    applyStoredConfig(); renderProducts(); renderInventoryTable(); renderStats(); renderAllOrders(); renderDeliveredList(); renderClientsTable(); renderHistoryList(); renderNewSaleNotification(); renderLogoSelector(); renderSeasonalGrid(); renderBanners(); updateFooter(); updateHeaderLogo(); updateHeaderStoreName(); updateCartCount();
-  } else {
-    // Mostrar pantalla de carga hasta que Firebase responda
-    renderLogoSelector(); renderSeasonalGrid();
-    document.getElementById('footerYear').textContent=new Date().getFullYear();
-  }
-  document.getElementById('footerYear').textContent=new Date().getFullYear();
-  setTimeout(()=>{ const pl=document.getElementById('pageLoading'); if(pl){ pl.style.opacity='0'; setTimeout(()=>pl.style.display='none',500); } if(!bgSelectorInitialized){ createBgSelectorModal(); bgSelectorInitialized=true; } addBgSelectorButton(); }, hasLocal ? 800 : 3000);
+  applyStoredConfig();
+  renderProducts(); renderInventoryTable(); renderStats(); renderAllOrders();
+  renderDeliveredList(); renderClientsTable(); renderHistoryList();
+  renderNewSaleNotification(); renderLogoSelector(); renderSeasonalGrid();
+  renderBanners(); updateFooter(); updateHeaderLogo(); updateHeaderStoreName(); updateCartCount();
+  document.getElementById('footerYear').textContent = new Date().getFullYear();
+  // Ocultar pantalla de carga SIEMPRE — sin importar Firebase
+  var pl = document.getElementById('pageLoading');
+  if (pl) { pl.style.opacity='0'; setTimeout(function(){ pl.style.display='none'; }, 500); }
+  if (!bgSelectorInitialized) { createBgSelectorModal(); bgSelectorInitialized=true; }
+  addBgSelectorButton();
+  // Sincronizar Firebase después de que la app ya está visible
+  setTimeout(_syncFirebase, 1500);
 })();
-setInterval(()=>{ saveFullData(); },30000);
+setInterval(function(){ saveFullData(); }, 30000);
 </script>
 
-<!-- Firebase compat (sin type=module, funciona con onclick inline) -->
+<!-- Firebase SDK (carga sin bloquear, después del script principal) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script>
-(function() {
-  try {
-    var firebaseConfig = {
-      apiKey: "AIzaSyCEIAO0rgzkfQofsqviwvdQvumJNgUepZ8",
-      authDomain: "dmastersventas.firebaseapp.com",
-      projectId: "dmastersventas",
-      storageBucket: "dmastersventas.firebasestorage.app",
-      messagingSenderId: "361433365644",
-      appId: "1:361433365644:web:bd81e4e92d1bd36518cfa9"
-    };
-    firebase.initializeApp(firebaseConfig);
-    window._fbDB = firebase.firestore();
-    console.log('✅ Firebase listo');
-  } catch(e) { console.warn('Firebase init error:', e); }
-})();
+try {
+  firebase.initializeApp({
+    apiKey: "AIzaSyCEIAO0rgzkfQofsqviwvdQvumJNgUepZ8",
+    authDomain: "dmastersventas.firebaseapp.com",
+    projectId: "dmastersventas",
+    storageBucket: "dmastersventas.firebasestorage.app",
+    messagingSenderId: "361433365644",
+    appId: "1:361433365644:web:bd81e4e92d1bd36518cfa9"
+  });
+  window._fbDB = firebase.firestore();
+  console.log('✅ Firebase listo');
+} catch(e) { console.warn('Firebase no disponible:', e); }
 </script>
 </body>
 </html>
