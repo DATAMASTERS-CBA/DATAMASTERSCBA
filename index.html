@@ -942,7 +942,7 @@ footer {
 <div class="page-loading" id="pageLoading">
   <div class="loading-logo">💻</div>
   <div class="loading-bar"><div class="loading-fill"></div></div>
-  <p style="color:rgba(255,255,255,0.5);font-size:0.85rem;">Cargando tienda desde la nube...</p>
+  <p style="color:rgba(255,255,255,0.5);font-size:0.85rem;" id="loadingMessage">🌐 Conectando con la nube...</p>
 </div>
 
 <header id="header">
@@ -1132,22 +1132,23 @@ footer {
 <div class="notif-container" id="notifContainer"></div>
 
 <script>
+// ==================== INICIALIZACIÓN GLOBAL ====================
 let DB = {
   products: [],
   users: [],
   orders: [],
   deliveredOrders: [],
   reviewedSales: [],
-  categories: { brands: ['HP','Dell','Lenovo','Asus','Acer','Samsung'], models: {}, parts: ['Pantalla','Teclado','Carcasa','Madre','Batería','Disco SSD','Memoria RAM'] },
+  categories: { brands: [], models: {}, parts: [] },
   config: {
     storeName: 'TechParts Store',
     slogan: 'Especialistas en repuestos',
     logoIcon: '💻',
-    wa: '+54 9 351 000-0000',
-    email: 'contacto@techparts.com',
-    address: 'Av. Colón 123',
-    hours: '9:00-18:00',
-    days: 'Lun-Vie',
+    wa: '',
+    email: '',
+    address: '',
+    hours: '',
+    days: '',
     theme: 'light',
     primaryColor: '#FFE600',
     font: 'Plus Jakarta Sans',
@@ -1165,11 +1166,7 @@ let DB = {
 };
 
 let bannersConfig = {
-  slides: [
-    { id: 'b1', title: "Repuestos para<br><span>Notebooks & Laptops</span>", subtitle: "Piezas originales y compatibles al mejor precio", bgImage: "", bgColor: "", searchFilter: "notebooks laptops", animation: "fade", active: true },
-    { id: 'b2', title: "Pantallas & <span>Displays</span>", subtitle: "Resolución Full HD • IPS • Touch • LED", bgImage: "", bgColor: "", searchFilter: "pantalla display", animation: "slideLeft", active: true },
-    { id: 'b3', title: "Teclados &<span> Accesorios</span>", subtitle: "Para todas las marcas principales", bgImage: "", bgColor: "", searchFilter: "teclado", animation: "zoom", active: true }
-  ]
+  slides: []
 };
 
 let currentUser = null;
@@ -1186,7 +1183,9 @@ let deliveredFilterQuery = '';
 let historyStatusFilter = 'all';
 let _realtimeUnsubscribe = null;
 let _realtimeBannersUnsubscribe = null;
+let _isDataLoadedFromCloud = false;
 
+// ==================== FUNCIONES AUXILIARES ====================
 const seasonalBackgrounds = {
   "ene": { name: "🎆 Año Nuevo", gradient: "linear-gradient(135deg,#1a1a2e 0%,#16213e 25%,#0f3460 50%,#e94560 100%)", icon: "🎆" },
   "feb": { name: "💕 San Valentín", gradient: "linear-gradient(135deg,#ff6b6b 0%,#c92a2a 25%,#ff8787 50%,#ff6b6b 100%)", icon: "💕" },
@@ -1206,19 +1205,171 @@ function escapeHtml(s) { if (!s) return ''; return String(s).replace(/[&<>]/g, f
 function formatNum(n) { return Number(n).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 function stockLabel(s) { if (s >= 10) return `✅ ${s} en stock`; if (s > 0) return `⚠️ Últimas ${s} unidades`; return `❌ Sin stock`; }
 function notify(msg, type = 'info') { const c = document.getElementById('notifContainer'); if (!c) return; const d = document.createElement('div'); d.className = `notif ${type}`; const icons = { success: '✅', error: '❌', info: 'ℹ️' }; d.innerHTML = `<span class="notif-icon">${icons[type] || 'ℹ️'}</span><span>${escapeHtml(msg)}</span>`; c.appendChild(d); setTimeout(() => { d.style.opacity = '0'; d.style.transform = 'translateX(60px)'; setTimeout(() => d.remove(), 300); }, 3500); }
-
 function normalizeStr(str) { return str ? str.toLowerCase().trim() : ''; }
+
+// ==================== FUNCIONES DE FIREBASE ====================
+function saveFullData() {
+  if (!_isDataLoadedFromCloud && (!currentUser || currentUser.role !== 'admin')) return;
+  try {
+    localStorage.setItem('techparts_db', JSON.stringify(DB));
+    localStorage.setItem('techparts_cart', JSON.stringify(cart));
+    localStorage.setItem('techparts_banners', JSON.stringify(bannersConfig));
+    if (currentUser) localStorage.setItem('techparts_user', JSON.stringify(currentUser));
+    else localStorage.removeItem('techparts_user');
+  } catch(e) {}
+  if (!window._fbDB) return;
+  try {
+    const dbCopy = JSON.parse(JSON.stringify(DB));
+    window._fbDB.collection('techparts').doc('db').set({ v: JSON.stringify(dbCopy), updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+    window._fbDB.collection('techparts').doc('banners').set({ v: JSON.stringify(bannersConfig) });
+  } catch(e) { console.warn('Firebase save error:', e); }
+}
+
+function _fixDB() {
+  if (!DB.deliveredOrders) DB.deliveredOrders = [];
+  if (!DB.reviewedSales) DB.reviewedSales = [];
+  if (!DB.config.logoIcon) DB.config.logoIcon = '💻';
+  if (!DB.categories.models) DB.categories.models = {};
+  if (!DB.categories.brands) DB.categories.brands = [];
+  if (!DB.categories.parts) DB.categories.parts = [];
+  if (!DB.config.textColors) DB.config.textColors = { main:'#1A1A2E', secondary:'#555', tertiary:'#888', border:'#E0E0E0', bg:'#F5F5F5', surface:'#FFF' };
+  if (DB.config.autoContrast === undefined) DB.config.autoContrast = false;
+  if (!DB.config.bgType) DB.config.bgType = 'default';
+  if (!DB.config.bgFitMode) DB.config.bgFitMode = 'cover';
+}
+
+function setupRealtimeSync() {
+  if (!window._fbDB) { setTimeout(setupRealtimeSync, 1000); return; }
+  if (_realtimeUnsubscribe) _realtimeUnsubscribe();
+  const dbRef = window._fbDB.collection('techparts').doc('db');
+  _realtimeUnsubscribe = dbRef.onSnapshot({
+    next: (snapshot) => {
+      if (snapshot.exists && _isDataLoadedFromCloud) {
+        try {
+          const remoteData = JSON.parse(snapshot.data().v);
+          const localUsers = DB.users || [];
+          const remoteUsers = remoteData.users || [];
+          const mergedUsers = [...remoteUsers];
+          localUsers.forEach(localUser => {
+            if (!remoteUsers.some(ru => ru.email === localUser.email) && localUser.email) mergedUsers.push(localUser);
+          });
+          const localOrders = DB.orders || [];
+          const remoteOrders = remoteData.orders || [];
+          const mergedOrders = [...remoteOrders];
+          localOrders.forEach(localOrder => {
+            if (!remoteOrders.some(ro => ro.id === localOrder.id)) mergedOrders.push(localOrder);
+          });
+          DB = { ...remoteData, users: mergedUsers, orders: mergedOrders, deliveredOrders: remoteData.deliveredOrders || [], reviewedSales: remoteData.reviewedSales || [], categories: remoteData.categories || DB.categories, config: remoteData.config || DB.config };
+          _fixDB();
+          if (currentUser) { const updated = DB.users.find(u => u.email === currentUser.email); if (updated) { currentUser = updated; updateAuthUI(); } }
+          renderProducts(); renderInventoryTable(); renderStats(); renderAllOrders(); renderDeliveredList(); renderClientsTable(); renderHistoryList();
+        } catch(e) { console.warn(e); }
+      }
+    },
+    error: (err) => console.warn(err)
+  });
+  const bannersRef = window._fbDB.collection('techparts').doc('banners');
+  if (_realtimeBannersUnsubscribe) _realtimeBannersUnsubscribe();
+  _realtimeBannersUnsubscribe = bannersRef.onSnapshot({
+    next: (snapshot) => {
+      if (snapshot.exists && _isDataLoadedFromCloud) {
+        try { const remoteBanners = JSON.parse(snapshot.data().v); if (remoteBanners?.slides) { bannersConfig = remoteBanners; renderBanners(); } } catch(e) {}
+      }
+    },
+    error: (err) => console.warn(err)
+  });
+}
+
+// ==================== CARGA EXCLUSIVA DESDE NUBE ====================
+function loadDataFromCloud() {
+  const loadingMsg = document.getElementById('loadingMessage');
+  if (loadingMsg) loadingMsg.textContent = '📡 Conectando con Firebase...';
+  
+  function checkFirebase() {
+    if (window._fbDB && window._fbInitialized) {
+      if (loadingMsg) loadingMsg.textContent = '☁️ Descargando datos desde la nube...';
+      window._fbDB.collection('techparts').doc('db').get().then(function(doc) {
+        if (doc.exists) {
+          try {
+            const cloudData = JSON.parse(doc.data().v);
+            if (cloudData && (cloudData.products || cloudData.users)) {
+              DB = cloudData;
+              if (loadingMsg) loadingMsg.textContent = '✅ Datos sincronizados desde la nube';
+              console.log('☁️ Datos cargados EXCLUSIVAMENTE desde Firebase');
+            } else {
+              if (loadingMsg) loadingMsg.textContent = '⚠️ No hay datos en la nube, creando estructura...';
+              // Solo crear estructura básica vacía, sin datos demo
+              DB.products = [];
+              DB.users = [];
+              DB.orders = [];
+              DB.deliveredOrders = [];
+              DB.reviewedSales = [];
+              DB.categories = { brands: [], models: {}, parts: [] };
+            }
+          } catch(e) { console.warn('Error parseando:', e); }
+        } else {
+          if (loadingMsg) loadingMsg.textContent = '📭 No hay datos en la nube, creando base nueva...';
+          DB.products = [];
+          DB.users = [];
+          DB.orders = [];
+          DB.deliveredOrders = [];
+          DB.reviewedSales = [];
+          DB.categories = { brands: [], models: {}, parts: [] };
+        }
+        _fixDB();
+        
+        window._fbDB.collection('techparts').doc('banners').get().then(function(bannerDoc) {
+          if (bannerDoc.exists) {
+            try { const cloudBanners = JSON.parse(bannerDoc.data().v); if (cloudBanners?.slides) bannersConfig = cloudBanners; } catch(e) {}
+          } else {
+            bannersConfig.slides = [];
+          }
+          _isDataLoadedFromCloud = true;
+          finishLoading();
+        }).catch(function() { _isDataLoadedFromCloud = true; finishLoading(); });
+        
+      }).catch(function(err) {
+        console.warn('Error cargando desde Firebase:', err);
+        if (loadingMsg) loadingMsg.textContent = '⚠️ Usando datos locales (fallback)';
+        _fixDB();
+        _isDataLoadedFromCloud = true;
+        finishLoading();
+      });
+    } else {
+      setTimeout(checkFirebase, 500);
+    }
+  }
+  
+  function finishLoading() {
+    applyStoredConfig();
+    renderProducts(); renderInventoryTable(); renderStats(); renderAllOrders();
+    renderDeliveredList(); renderClientsTable(); renderHistoryList();
+    renderNewSaleNotification(); renderLogoSelector(); renderSeasonalGrid();
+    renderBanners(); updateFooter(); updateHeaderLogo(); updateHeaderStoreName(); updateCartCount();
+    updateAuthUI();
+    document.getElementById('footerYear').textContent = new Date().getFullYear();
+    if (!bgSelectorInitialized) { createBgSelectorModal(); bgSelectorInitialized = true; }
+    addBgSelectorButton();
+    setTimeout(setupRealtimeSync, 2000);
+    const loading = document.getElementById('pageLoading');
+    if (loading) { loading.style.opacity = '0'; setTimeout(function() { loading.style.display = 'none'; }, 500); }
+  }
+  
+  checkFirebase();
+}
+
+// ==================== FUNCIONES DE AUTENTICACIÓN ====================
 function saveToAutocomplete(username, password) {
   try {
-    const autocompleteData = { username: username, password: password, timestamp: Date.now() };
-    localStorage.setItem('techparts_last_user', JSON.stringify(autocompleteData));
+    localStorage.setItem('techparts_last_user', JSON.stringify({ username, password, timestamp: Date.now() }));
     let history = JSON.parse(localStorage.getItem('techparts_user_history') || '[]');
     history = history.filter(u => u.username !== username);
-    history.unshift({ username: username, timestamp: Date.now() });
+    history.unshift({ username, timestamp: Date.now() });
     history = history.slice(0, 10);
     localStorage.setItem('techparts_user_history', JSON.stringify(history));
-  } catch(e) { console.error('Error guardando autocompletado:', e); }
+  } catch(e) {}
 }
+
 function loadAutocompleteForLogin() {
   try {
     const lastUser = localStorage.getItem('techparts_last_user');
@@ -1229,8 +1380,9 @@ function loadAutocompleteForLogin() {
       if (usernameInput && data.username) usernameInput.value = data.username;
       if (passwordInput && data.password) passwordInput.value = data.password;
     }
-  } catch(e) { console.error('Error cargando autocompletado:', e); }
+  } catch(e) {}
 }
+
 function setupUserDatalist() {
   const loginInput = document.getElementById('loginUser');
   if (!loginInput) return;
@@ -1252,6 +1404,7 @@ function doLogin() {
   const pass = passInput ? passInput.value : '';
   const normalizedUser = normalizeStr(user);
   const normalizedPass = normalizeStr(pass);
+  
   if (normalizedUser === 'dmadmin23' && normalizedPass === 'alexalex23') {
     currentUser = { name: 'Administrador', email: 'dmadmin23', role: 'admin', phone: '', address: '', updatedAt: Date.now() };
     saveFullData();
@@ -1261,11 +1414,13 @@ function doLogin() {
     notify('✅ Bienvenido, Administrador', 'success');
     return;
   }
+  
   const found = DB.users.find(u => {
     const userMatch = (normalizeStr(u.email) === normalizedUser || normalizeStr(u.name) === normalizedUser || normalizeStr(u.phone) === normalizedUser);
     const passMatch = (u.password === pass || normalizeStr(u.password) === normalizedPass);
     return userMatch && passMatch;
   });
+  
   if (found) {
     currentUser = found;
     saveFullData();
@@ -1274,9 +1429,7 @@ function doLogin() {
     closeModal('authModal');
     notify(`✅ Bienvenido, ${found.name}`, 'success');
   } else {
-    const userExists = DB.users.some(u => normalizeStr(u.email) === normalizedUser || normalizeStr(u.name) === normalizedUser || normalizeStr(u.phone) === normalizedUser);
-    if (userExists) notify('❌ Contraseña incorrecta', 'error');
-    else notify('❌ Usuario no encontrado. ¿Necesitas registrarte?', 'error');
+    notify('❌ Usuario o contraseña incorrectos', 'error');
   }
 }
 
@@ -1286,10 +1439,12 @@ function doRegister() {
   const phone = document.getElementById('regPhone').value.trim();
   const address = document.getElementById('regAddress').value.trim();
   const pass = document.getElementById('regPass').value;
+  
   if (!name || !email || !phone || !address || !pass) { notify('⚠️ Todos los campos son obligatorios', 'error'); return; }
   if (pass.length < 6) { notify('⚠️ La contraseña debe tener al menos 6 caracteres', 'error'); return; }
   if (DB.users.find(u => u.email === email)) { notify('⚠️ El correo ya está registrado', 'error'); return; }
   if (DB.users.find(u => u.phone === phone)) { notify('⚠️ El número de teléfono ya está registrado', 'error'); return; }
+  
   const newUser = { name, email, phone, address, password: pass, role: 'user', createdAt: new Date().toISOString(), updatedAt: Date.now() };
   DB.users.push(newUser);
   currentUser = newUser;
@@ -1298,7 +1453,7 @@ function doRegister() {
   saveToAutocomplete(email, pass);
   closeModal('authModal');
   notify(`✅ ¡Registro exitoso! Bienvenido, ${name}`, 'success');
-  if (document.getElementById('tab-clients') && document.getElementById('tab-clients').classList.contains('active')) {
+  if (document.getElementById('tab-clients')?.classList.contains('active')) {
     renderClientsTable(document.getElementById('clientsSearch')?.value || '');
   }
 }
@@ -1310,464 +1465,68 @@ function sendRecoveryEmail() {
   const user = DB.users.find(u => normalizeStr(u.email) === normalizeStr(email));
   if (!user) { msgDiv.innerHTML = '<span style="color:var(--badge-oferta)">❌ No hay una cuenta registrada con este correo</span>'; return; }
   const mensaje = `🔐 Recordatorio de contraseña\n\nUsuario: ${user.name}\nContraseña: ${user.password}\n\nIngresá a la tienda con estos datos.`;
-  navigator.clipboard.writeText(mensaje).then(() => msgDiv.innerHTML = `<span style="color:var(--badge-new)">✅ Se ha enviado un recordatorio a ${email}</span><div style="margin-top:8px;font-size:0.75rem">(La contraseña se copió al portapapeles)</div>`).catch(() => msgDiv.innerHTML = `<span style="color:var(--badge-new)">✅ Tu contraseña es: ${user.password}</span>`);
+  navigator.clipboard.writeText(mensaje).then(() => msgDiv.innerHTML = `<span style="color:var(--badge-new)">✅ Se ha enviado un recordatorio a ${email}</span>`).catch(() => msgDiv.innerHTML = `<span style="color:var(--badge-new)">✅ Tu contraseña es: ${user.password}</span>`);
   setTimeout(() => { msgDiv.innerHTML = ''; switchAuthTab('login', document.querySelector('.auth-tab')); document.getElementById('loginUser').value = email; }, 3000);
 }
 
 function doLogout() { currentUser = null; saveFullData(); updateAuthUI(); closeModal('userMenuModal'); showStore(); notify('👋 Sesión cerrada', 'info'); }
-function updateAuthUI() { const authBtn = document.getElementById('authBtn'), userBtn = document.getElementById('userBtn'), adminBtn = document.getElementById('adminBtn'), userNameSpan = document.getElementById('userNameDisplay'); if (currentUser) { if (authBtn) authBtn.style.display = 'none'; if (userBtn) userBtn.style.display = 'flex'; if (userNameSpan) userNameSpan.textContent = (currentUser.name || '').split(' ')[0]; if (adminBtn) adminBtn.style.display = currentUser.role === 'admin' ? 'flex' : 'none'; } else { if (authBtn) authBtn.style.display = 'flex'; if (userBtn) userBtn.style.display = 'none'; if (adminBtn) adminBtn.style.display = 'none'; } }
+function updateAuthUI() { 
+  const authBtn = document.getElementById('authBtn'), userBtn = document.getElementById('userBtn'), adminBtn = document.getElementById('adminBtn'), userNameSpan = document.getElementById('userNameDisplay'); 
+  if (currentUser) { 
+    if (authBtn) authBtn.style.display = 'none'; 
+    if (userBtn) userBtn.style.display = 'flex'; 
+    if (userNameSpan) userNameSpan.textContent = (currentUser.name || '').split(' ')[0]; 
+    if (adminBtn) adminBtn.style.display = currentUser.role === 'admin' ? 'flex' : 'none'; 
+  } else { 
+    if (authBtn) authBtn.style.display = 'flex'; 
+    if (userBtn) userBtn.style.display = 'none'; 
+    if (adminBtn) adminBtn.style.display = 'none'; 
+  } 
+}
 function openAuthModal() { document.getElementById('loginUser').value = ''; document.getElementById('loginPass').value = ''; document.getElementById('authRecovery').style.display = 'none'; document.getElementById('authLogin').style.display = 'block'; document.getElementById('authRegister').style.display = 'none'; openModal('authModal'); setTimeout(() => { loadAutocompleteForLogin(); setupUserDatalist(); }, 100); }
 function switchAuthTab(tab, el) { document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active')); if (el) el.classList.add('active'); document.getElementById('authLogin').style.display = tab === 'login' ? 'block' : 'none'; document.getElementById('authRegister').style.display = tab === 'register' ? 'block' : 'none'; document.getElementById('authRecovery').style.display = 'none'; }
 function showRecovery() { document.getElementById('authLogin').style.display = 'none'; document.getElementById('authRegister').style.display = 'none'; document.getElementById('authRecovery').style.display = 'block'; }
 
-function _fixDB() {
-  if (!DB.deliveredOrders) DB.deliveredOrders = [];
-  if (!DB.reviewedSales) DB.reviewedSales = [];
-  if (!DB.config.logoIcon) DB.config.logoIcon = '💻';
-  if (!DB.categories.models) DB.categories.models = {};
-  if (!DB.config.textColors) DB.config.textColors = { main:'#1A1A2E', secondary:'#555', tertiary:'#888', border:'#E0E0E0', bg:'#F5F5F5', surface:'#FFF' };
-  if (DB.config.autoContrast === undefined) DB.config.autoContrast = false;
-  if (!DB.config.bgType) DB.config.bgType = 'default';
-  if (!DB.config.bgFitMode) DB.config.bgFitMode = 'cover';
-}
+// ==================== FUNCIONES DE BANNERS ====================
+function filterByBannerSearch() { if (bannersConfig.slides?.[currentBanner]?.searchFilter) { const searchInput = document.getElementById('searchInput'); if (searchInput) { searchInput.value = bannersConfig.slides[currentBanner].searchFilter; handleSearch(bannersConfig.slides[currentBanner].searchFilter); notify(`🔍 Buscando: ${bannersConfig.slides[currentBanner].searchFilter}`, 'info'); } } }
+function uploadBannerImage(bannerIdx) { if (currentUser?.role !== 'admin') { notify('⛔ Solo el administrador puede modificar banners', 'error'); return; } const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/jpeg,image/png,image/gif,image/webp,image/bmp'; input.onchange = async (e) => { const file = e.target.files[0]; if (!file) return; if (file.size > 2 * 1024 * 1024) { notify('⚠️ La imagen no debe superar los 2MB', 'error'); return; } try { const base64 = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.readAsDataURL(file); reader.onload = () => resolve(reader.result); reader.onerror = error => reject(error); }); bannersConfig.slides[bannerIdx].bgImage = base64; bannersConfig.slides[bannerIdx].bgColor = ''; const bgImageInput = document.getElementById(`bannerBgImage_${bannerIdx}`); if (bgImageInput) bgImageInput.value = base64; updateBannerPreview(bannerIdx, base64); notify('✅ Imagen cargada correctamente', 'success'); saveFullData(); renderBanners(); } catch(err) { notify('❌ Error al cargar la imagen', 'error'); } }; input.click(); }
+function updateBannerColor(bannerIdx, color) { if (currentUser?.role !== 'admin') { notify('⛔ Solo el administrador puede modificar banners', 'error'); return; } bannersConfig.slides[bannerIdx].bgColor = color; bannersConfig.slides[bannerIdx].bgImage = ''; const bgImageInput = document.getElementById(`bannerBgImage_${bannerIdx}`); if (bgImageInput) bgImageInput.value = ''; updateBannerPreview(bannerIdx, '', color); notify('✅ Color de fondo actualizado', 'success'); saveFullData(); renderBanners(); }
+function updateBannerPreview(idx, imageUrl, color) { const previewContainer = document.getElementById(`bannerPreview_${idx}`); if (previewContainer) { if (imageUrl) { previewContainer.innerHTML = `<img src="${imageUrl}" style="width:100%;height:100px;object-fit:cover;border-radius:8px" onerror="this.style.display='none'">`; } else if (color) { previewContainer.innerHTML = `<div style="width:100%;height:100px;background:${color};border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff">Fondo color</div>`; } else { previewContainer.innerHTML = '<div style="width:100%;height:100px;background:var(--bg3);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--text3)">Sin imagen / color</div>'; } } }
+function openBannerConfigModal() { if (currentUser?.role !== 'admin') { notify('⛔ Solo el administrador puede modificar banners', 'error'); return; } renderBannerConfigForm(); openModal('bannerConfigModal'); }
+function renderBannerConfigForm() { const container = document.getElementById('bannerConfigBody'); if (!container) return; container.innerHTML = `<div style="margin-bottom:20px"><button class="btn-primary" onclick="addNewBanner()" style="width:100%;margin-bottom:10px">➕ Agregar nuevo banner</button></div><div id="bannerItemsList"></div><div style="margin-top:20px;display:flex;gap:10px"><button class="btn-primary" onclick="saveAllBanners()" style="flex:1">💾 Guardar todos los cambios</button><button class="btn-secondary" onclick="closeModal('bannerConfigModal')" style="flex:1">Cancelar</button></div>`; renderBannerItemsList(); }
+function renderBannerItemsList() { const listContainer = document.getElementById('bannerItemsList'); if (!listContainer) return; listContainer.innerHTML = bannersConfig.slides.map((slide, idx) => `<div class="banner-item-card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border)"><h4 style="font-size:0.9rem;font-weight:700">🎯 Banner ${idx + 1}</h4><div style="display:flex;gap:8px"><label style="display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" ${slide.active ? 'checked' : ''} onchange="toggleBannerActive(${idx}, this.checked)"><span style="font-size:0.75rem">Activo</span></label><button class="tbl-btn tbl-del" onclick="deleteBanner(${idx})" style="padding:4px 8px">🗑️</button></div></div><div class="form-group"><label>🖼️ Imagen del banner</label><div style="display:flex;gap:10px;margin-bottom:10px"><button class="btn-secondary" onclick="uploadBannerImage(${idx})" style="flex:1">📁 Subir imagen desde PC</button><button class="btn-secondary" onclick="addBannerImageUrl(${idx})" style="flex:1">🔗 Usar URL de internet</button></div><input type="text" id="bannerBgImage_${idx}" value="${escapeHtml(slide.bgImage || '')}" placeholder="URL de la imagen" style="width:100%;margin-bottom:10px" onchange="updateBannerImageFromUrl(${idx}, this.value)"><label>🎨 O elegir color de fondo</label><input type="color" id="bannerBgColor_${idx}" value="${slide.bgColor || '#1A1A2E'}" style="width:100%;margin-top:5px" onchange="updateBannerColor(${idx}, this.value)"><div id="bannerPreview_${idx}" style="margin-top:10px">${slide.bgImage ? `<img src="${slide.bgImage}" style="width:100%;height:100px;object-fit:cover;border-radius:8px" onerror="this.style.display='none'">` : (slide.bgColor ? `<div style="width:100%;height:100px;background:${slide.bgColor};border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff">Fondo color</div>` : '<div style="width:100%;height:100px;background:var(--bg3);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--text3)">Sin imagen / color</div>')}</div></div><div class="form-group"><label>📝 Título del banner</label><input type="text" id="bannerTitle_${idx}" value="${escapeHtml(slide.title)}" style="width:100%"></div><div class="form-group"><label>📄 Subtítulo del banner</label><input type="text" id="bannerSubtitle_${idx}" value="${escapeHtml(slide.subtitle)}" style="width:100%"></div><div class="form-group"><label>🔍 Texto para filtrar productos (al hacer clic)</label><input type="text" id="bannerSearchFilter_${idx}" value="${escapeHtml(slide.searchFilter || '')}" placeholder="Ej: pantalla, teclado, batería..." style="width:100%"></div><div class="form-group"><label>🎬 Animación del banner</label><select id="bannerAnimation_${idx}" class="banner-animation-select" style="width:100%;padding:8px;border-radius:var(--radius-sm);border:1px solid var(--border)"><option value="fade" ${slide.animation === 'fade' ? 'selected' : ''}>Desvanecer (Fade)</option><option value="slideLeft" ${slide.animation === 'slideLeft' ? 'selected' : ''}>Deslizar desde izquierda</option><option value="slideRight" ${slide.animation === 'slideRight' ? 'selected' : ''}>Deslizar desde derecha</option><option value="slideUp" ${slide.animation === 'slideUp' ? 'selected' : ''}>Deslizar desde arriba</option><option value="zoom" ${slide.animation === 'zoom' ? 'selected' : ''}>Zoom In</option><option value="bounce" ${slide.animation === 'bounce' ? 'selected' : ''}>Rebote</option></select></div></div>`).join(''); }
+function updateBannerImageFromUrl(idx, url) { if (currentUser?.role !== 'admin') { notify('⛔ Solo el administrador puede modificar banners', 'error'); return; } bannersConfig.slides[idx].bgImage = url; bannersConfig.slides[idx].bgColor = ''; updateBannerPreview(idx, url); saveFullData(); renderBanners(); }
+function addBannerImageUrl(idx) { if (currentUser?.role !== 'admin') { notify('⛔ Solo el administrador puede modificar banners', 'error'); return; } const url = prompt('Ingresá la URL de la imagen:'); if (url && url.trim()) { bannersConfig.slides[idx].bgImage = url.trim(); bannersConfig.slides[idx].bgColor = ''; const input = document.getElementById(`bannerBgImage_${idx}`); if (input) input.value = url.trim(); updateBannerPreview(idx, url.trim()); notify('✅ URL de imagen agregada', 'success'); saveFullData(); renderBanners(); } }
+function toggleBannerActive(idx, isActive) { if (currentUser?.role !== 'admin') { notify('⛔ Solo el administrador puede modificar banners', 'error'); return; } if (bannersConfig.slides[idx]) bannersConfig.slides[idx].active = isActive; saveFullData(); renderBanners(); }
+function addNewBanner() { if (currentUser?.role !== 'admin') { notify('⛔ Solo el administrador puede agregar banners', 'error'); return; } const newId = 'b' + Date.now(); bannersConfig.slides.push({ id: newId, title: "Nuevo Banner", subtitle: "Descripción del banner", bgImage: "", bgColor: "", searchFilter: "", animation: "fade", active: true }); renderBannerItemsList(); notify('✅ Nuevo banner agregado', 'success'); saveFullData(); }
+function deleteBanner(idx) { if (currentUser?.role !== 'admin') { notify('⛔ Solo el administrador puede eliminar banners', 'error'); return; } if (bannersConfig.slides.length <= 1) { notify('⚠️ Debe haber al menos un banner activo', 'error'); return; } if (confirm('¿Eliminar este banner?')) { bannersConfig.slides.splice(idx, 1); renderBannerItemsList(); renderBanners(); notify('🗑️ Banner eliminado', 'info'); saveFullData(); } }
+function saveAllBanners() { if (currentUser?.role !== 'admin') { notify('⛔ Solo el administrador puede guardar banners', 'error'); return; } for (let i = 0; i < bannersConfig.slides.length; i++) { const titleInput = document.getElementById(`bannerTitle_${i}`); const subtitleInput = document.getElementById(`bannerSubtitle_${i}`); const bgImageInput = document.getElementById(`bannerBgImage_${i}`); const searchFilterInput = document.getElementById(`bannerSearchFilter_${i}`); const animationSelect = document.getElementById(`bannerAnimation_${i}`); if (titleInput) bannersConfig.slides[i].title = titleInput.value; if (subtitleInput) bannersConfig.slides[i].subtitle = subtitleInput.value; if (bgImageInput && bgImageInput.value) { bannersConfig.slides[i].bgImage = bgImageInput.value; bannersConfig.slides[i].bgColor = ''; } if (searchFilterInput) bannersConfig.slides[i].searchFilter = searchFilterInput.value; if (animationSelect) bannersConfig.slides[i].animation = animationSelect.value; } saveFullData(); renderBanners(); notify('✅ Banners guardados correctamente', 'success'); closeModal('bannerConfigModal'); }
+function renderBanners() { const slidesContainer = document.querySelector('.banner-carousel'); if (!slidesContainer) return; const activeSlides = bannersConfig.slides.filter(s => s.active); if (activeSlides.length === 0) { slidesContainer.innerHTML = '<div class="banner-slide active" style="background:linear-gradient(135deg,#1A1A2E 0%,#16213e 40%,#0f3460 100%);border:2px solid var(--primary);box-shadow:0 0 0 2px rgba(0,0,0,0.1);border-radius:var(--radius-lg)"><div class="banner-content"><h2>Bienvenido<br><span>a nuestra tienda</span></h2><p>Descubre nuestros productos</p></div></div><div class="banner-dots" id="bannerDots"><div class="banner-dot active"></div></div>'; return; } slidesContainer.innerHTML = activeSlides.map((slide, idx) => { let bgStyle = ''; if (slide.bgImage) { bgStyle = `url('${slide.bgImage}') center center / cover no-repeat`; } else if (slide.bgColor) { bgStyle = slide.bgColor; } else { bgStyle = 'linear-gradient(135deg,#1A1A2E 0%,#16213e 40%,#0f3460 100%)'; } const animationClass = `banner-animation-${slide.animation}`; return `<div class="banner-slide ${idx === 0 ? 'active' : ''} ${animationClass}" data-banner-idx="${idx}" style="background: ${bgStyle}; border: 2px solid var(--primary); box-shadow: 0 0 0 2px rgba(0,0,0,0.1); border-radius: var(--radius-lg);"><div class="banner-content"><h2>${slide.title}</h2><p>${slide.subtitle}</p></div></div>`; }).join('') + `<div class="banner-dots" id="bannerDots">${activeSlides.map((_, idx) => `<div class="banner-dot ${idx === 0 ? 'active' : ''}" onclick="event.stopPropagation();goToBannerSlide(${idx})"></div>`).join('')}</div>`; currentBanner = 0; startBannerCarousel(); }
+function goToBannerSlide(n) { const slides = document.querySelectorAll('.banner-slide'); const dots = document.querySelectorAll('.banner-dot'); if (!slides.length) return; slides.forEach(s => s.classList.remove('active')); dots.forEach(d => d.classList.remove('active')); if (slides[n]) slides[n].classList.add('active'); if (dots[n]) dots[n].classList.add('active'); currentBanner = n; }
+function startBannerCarousel() { clearInterval(bannerInterval); bannerInterval = setInterval(() => { const slides = document.querySelectorAll('.banner-slide'); if (slides.length > 1) { goToBannerSlide((currentBanner + 1) % slides.length); } }, 5000); }
 
-function saveFullData() {
-  if (DB.users) {
-    DB.users.forEach(user => { if (!user.updatedAt) user.updatedAt = Date.now(); });
-  }
-  try {
-    localStorage.setItem('techparts_db', JSON.stringify(DB));
-    localStorage.setItem('techparts_cart', JSON.stringify(cart));
-    localStorage.setItem('techparts_banners', JSON.stringify(bannersConfig));
-    if (currentUser) localStorage.setItem('techparts_user', JSON.stringify(currentUser));
-    else localStorage.removeItem('techparts_user');
-  } catch(e) {}
-  try {
-    var fbdb = window._fbDB;
-    if (fbdb) {
-      const dbCopy = JSON.parse(JSON.stringify(DB));
-      fbdb.collection('techparts').doc('db').set({ v: JSON.stringify(dbCopy), updatedAt: firebase.firestore.FieldValue.serverTimestamp() })
-        .then(function(){ console.log('Firebase DB guardado OK'); })
-        .catch(function(e){ console.warn('Firebase save error:', e); });
-      fbdb.collection('techparts').doc('banners').set({ v: JSON.stringify(bannersConfig) })
-        .catch(function(e){ console.warn('Firebase banners error:', e); });
-    }
-  } catch(e) { console.warn('saveFullData Firebase error:', e); }
-}
-
-function loadFullData() {
-  try {
-    var raw = localStorage.getItem('techparts_db');
-    if (raw) { DB = Object.assign({}, DB, JSON.parse(raw)); }
-    var rawCart = localStorage.getItem('techparts_cart');
-    if (rawCart) cart = JSON.parse(rawCart);
-    var rawBanners = localStorage.getItem('techparts_banners');
-    if (rawBanners) { var pb = JSON.parse(rawBanners); if (pb.slides) bannersConfig = pb; }
-    var rawUser = localStorage.getItem('techparts_user');
-    if (rawUser) currentUser = JSON.parse(rawUser);
-    _fixDB();
-  } catch(e) { console.warn('localStorage error:', e); }
-}
-
-function setupRealtimeSync() {
-  if (!window._fbDB) {
-    console.log('Firebase no listo, reintentando...');
-    setTimeout(setupRealtimeSync, 1000);
-    return;
-  }
-  if (_realtimeUnsubscribe) _realtimeUnsubscribe();
-  console.log('Configurando escucha en tiempo real de Firestore...');
-  const dbRef = window._fbDB.collection('techparts').doc('db');
-  _realtimeUnsubscribe = dbRef.onSnapshot({
-    next: (snapshot) => {
-      if (snapshot.exists) {
-        try {
-          const remoteData = JSON.parse(snapshot.data().v);
-          console.log('📡 Cambios detectados en Firebase, sincronizando...');
-          const localUsers = DB.users || [];
-          const remoteUsers = remoteData.users || [];
-          const mergedUsers = [...remoteUsers];
-          localUsers.forEach(localUser => {
-            const existsInRemote = remoteUsers.some(ru => ru.email === localUser.email);
-            if (!existsInRemote && localUser.email) {
-              console.log(`➕ Agregando usuario local no sincronizado: ${localUser.email}`);
-              mergedUsers.push(localUser);
-            }
-          });
-          const localOrders = DB.orders || [];
-          const remoteOrders = remoteData.orders || [];
-          const mergedOrders = [...remoteOrders];
-          localOrders.forEach(localOrder => {
-            const existsInRemote = remoteOrders.some(ro => ro.id === localOrder.id);
-            if (!existsInRemote) {
-              console.log(`➕ Agregando pedido local no sincronizado: ${localOrder.id}`);
-              mergedOrders.push(localOrder);
-            }
-          });
-          DB = {
-            ...remoteData,
-            users: mergedUsers,
-            orders: mergedOrders,
-            deliveredOrders: remoteData.deliveredOrders || [],
-            reviewedSales: remoteData.reviewedSales || [],
-            categories: remoteData.categories || DB.categories,
-            config: remoteData.config || DB.config
-          };
-          _fixDB();
-          if (currentUser) {
-            const updatedCurrent = DB.users.find(u => u.email === currentUser.email);
-            if (updatedCurrent) {
-              currentUser = updatedCurrent;
-              localStorage.setItem('techparts_user', JSON.stringify(currentUser));
-              updateAuthUI();
-            }
-          }
-          localStorage.setItem('techparts_db', JSON.stringify(DB));
-          renderProducts();
-          renderInventoryTable();
-          renderStats();
-          renderAllOrders();
-          renderDeliveredList();
-          if (document.getElementById('clientsTableBody')) {
-            renderClientsTable(document.getElementById('clientsSearch')?.value || '');
-          }
-          renderHistoryList();
-          if (document.getElementById('tab-clients') && document.getElementById('tab-clients').classList.contains('active')) {
-            renderClientsTable(document.getElementById('clientsSearch')?.value || '');
-          }
-          console.log('✅ Sincronización en tiempo real completada');
-        } catch(e) { console.warn('Error procesando snapshot:', e); }
-      }
-    },
-    error: (err) => { console.warn('Error en snapshot de Firestore:', err); }
-  });
-  const bannersRef = window._fbDB.collection('techparts').doc('banners');
-  if (_realtimeBannersUnsubscribe) _realtimeBannersUnsubscribe();
-  _realtimeBannersUnsubscribe = bannersRef.onSnapshot({
-    next: (snapshot) => {
-      if (snapshot.exists) {
-        try {
-          const remoteBanners = JSON.parse(snapshot.data().v);
-          if (remoteBanners && remoteBanners.slides) {
-            bannersConfig = remoteBanners;
-            localStorage.setItem('techparts_banners', JSON.stringify(bannersConfig));
-            renderBanners();
-            console.log('📡 Banners sincronizados en tiempo real');
-          }
-        } catch(e) {}
-      }
-    },
-    error: (err) => console.warn('Error en snapshot de banners:', err)
-  });
-}
-
-function filterByBannerSearch() {
-  if (bannersConfig.slides && bannersConfig.slides[currentBanner]) {
-    const activeSlide = bannersConfig.slides[currentBanner];
-    if (activeSlide && activeSlide.searchFilter) {
-      const searchInput = document.getElementById('searchInput');
-      if (searchInput) {
-        searchInput.value = activeSlide.searchFilter;
-        handleSearch(activeSlide.searchFilter);
-        notify(`🔍 Buscando: ${activeSlide.searchFilter}`, 'info');
-      }
-    }
-  }
-}
-function uploadBannerImage(bannerIdx) {
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.accept = 'image/jpeg,image/png,image/gif,image/webp,image/bmp';
-  input.onchange = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    if (file.size > 2 * 1024 * 1024) {
-      notify('⚠️ La imagen no debe superar los 2MB', 'error');
-      return;
-    }
-    try {
-      const base64 = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = error => reject(error);
-      });
-      bannersConfig.slides[bannerIdx].bgImage = base64;
-      bannersConfig.slides[bannerIdx].bgColor = '';
-      const bgImageInput = document.getElementById(`bannerBgImage_${bannerIdx}`);
-      if (bgImageInput) bgImageInput.value = base64;
-      updateBannerPreview(bannerIdx, base64);
-      notify('✅ Imagen cargada correctamente', 'success');
-      saveFullData();
-      renderBanners();
-    } catch(err) {
-      notify('❌ Error al cargar la imagen', 'error');
-    }
-  };
-  input.click();
-}
-function updateBannerColor(bannerIdx, color) {
-  bannersConfig.slides[bannerIdx].bgColor = color;
-  bannersConfig.slides[bannerIdx].bgImage = '';
-  const bgImageInput = document.getElementById(`bannerBgImage_${bannerIdx}`);
-  if (bgImageInput) bgImageInput.value = '';
-  updateBannerPreview(bannerIdx, '', color);
-  notify('✅ Color de fondo actualizado', 'success');
-  saveFullData();
-  renderBanners();
-}
-function updateBannerPreview(idx, imageUrl, color) {
-  const previewContainer = document.getElementById(`bannerPreview_${idx}`);
-  if (previewContainer) {
-    if (imageUrl) {
-      previewContainer.innerHTML = `<img src="${imageUrl}" style="width:100%;height:100px;object-fit:cover;border-radius:8px" onerror="this.style.display='none'">`;
-    } else if (color) {
-      previewContainer.innerHTML = `<div style="width:100%;height:100px;background:${color};border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff">Fondo color</div>`;
-    } else {
-      previewContainer.innerHTML = '<div style="width:100%;height:100px;background:var(--bg3);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--text3)">Sin imagen / color</div>';
-    }
-  }
-}
-function openBannerConfigModal() {
-  renderBannerConfigForm();
-  openModal('bannerConfigModal');
-}
-function renderBannerConfigForm() {
-  const container = document.getElementById('bannerConfigBody');
-  if (!container) return;
-  container.innerHTML = `
-    <div style="margin-bottom:20px">
-      <button class="btn-primary" onclick="addNewBanner()" style="width:100%;margin-bottom:10px">➕ Agregar nuevo banner</button>
-    </div>
-    <div id="bannerItemsList"></div>
-    <div style="margin-top:20px;display:flex;gap:10px">
-      <button class="btn-primary" onclick="saveAllBanners()" style="flex:1">💾 Guardar todos los cambios</button>
-      <button class="btn-secondary" onclick="closeModal('bannerConfigModal')" style="flex:1">Cancelar</button>
-    </div>
-  `;
-  renderBannerItemsList();
-}
-function renderBannerItemsList() {
-  const listContainer = document.getElementById('bannerItemsList');
-  if (!listContainer) return;
-  listContainer.innerHTML = bannersConfig.slides.map((slide, idx) => `
-    <div class="banner-item-card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border)">
-        <h4 style="font-size:0.9rem;font-weight:700">🎯 Banner ${idx + 1}</h4>
-        <div style="display:flex;gap:8px">
-          <label style="display:flex;align-items:center;gap:5px;cursor:pointer">
-            <input type="checkbox" ${slide.active ? 'checked' : ''} onchange="toggleBannerActive(${idx}, this.checked)">
-            <span style="font-size:0.75rem">Activo</span>
-          </label>
-          <button class="tbl-btn tbl-del" onclick="deleteBanner(${idx})" style="padding:4px 8px">🗑️</button>
-        </div>
-      </div>
-      <div class="form-group">
-        <label>🖼️ Imagen del banner</label>
-        <div style="display:flex;gap:10px;margin-bottom:10px">
-          <button class="btn-secondary" onclick="uploadBannerImage(${idx})" style="flex:1">📁 Subir imagen desde PC</button>
-          <button class="btn-secondary" onclick="addBannerImageUrl(${idx})" style="flex:1">🔗 Usar URL de internet</button>
-        </div>
-        <input type="text" id="bannerBgImage_${idx}" value="${escapeHtml(slide.bgImage || '')}" placeholder="URL de la imagen" style="width:100%;margin-bottom:10px" onchange="updateBannerImageFromUrl(${idx}, this.value)">
-        <label>🎨 O elegir color de fondo</label>
-        <input type="color" id="bannerBgColor_${idx}" value="${slide.bgColor || '#1A1A2E'}" style="width:100%;margin-top:5px" onchange="updateBannerColor(${idx}, this.value)">
-        <div id="bannerPreview_${idx}" style="margin-top:10px">
-          ${slide.bgImage ? `<img src="${slide.bgImage}" style="width:100%;height:100px;object-fit:cover;border-radius:8px" onerror="this.style.display='none'">` : (slide.bgColor ? `<div style="width:100%;height:100px;background:${slide.bgColor};border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff">Fondo color</div>` : '<div style="width:100%;height:100px;background:var(--bg3);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--text3)">Sin imagen / color</div>')}
-        </div>
-      </div>
-      <div class="form-group">
-        <label>📝 Título del banner</label>
-        <input type="text" id="bannerTitle_${idx}" value="${escapeHtml(slide.title)}" style="width:100%">
-      </div>
-      <div class="form-group">
-        <label>📄 Subtítulo del banner</label>
-        <input type="text" id="bannerSubtitle_${idx}" value="${escapeHtml(slide.subtitle)}" style="width:100%">
-      </div>
-      <div class="form-group">
-        <label>🔍 Texto para filtrar productos (al hacer clic)</label>
-        <input type="text" id="bannerSearchFilter_${idx}" value="${escapeHtml(slide.searchFilter || '')}" placeholder="Ej: pantalla, teclado, batería..." style="width:100%">
-      </div>
-      <div class="form-group">
-        <label>🎬 Animación del banner</label>
-        <select id="bannerAnimation_${idx}" class="banner-animation-select" style="width:100%;padding:8px;border-radius:var(--radius-sm);border:1px solid var(--border)">
-          <option value="fade" ${slide.animation === 'fade' ? 'selected' : ''}>Desvanecer (Fade)</option>
-          <option value="slideLeft" ${slide.animation === 'slideLeft' ? 'selected' : ''}>Deslizar desde izquierda</option>
-          <option value="slideRight" ${slide.animation === 'slideRight' ? 'selected' : ''}>Deslizar desde derecha</option>
-          <option value="slideUp" ${slide.animation === 'slideUp' ? 'selected' : ''}>Deslizar desde arriba</option>
-          <option value="zoom" ${slide.animation === 'zoom' ? 'selected' : ''}>Zoom In</option>
-          <option value="bounce" ${slide.animation === 'bounce' ? 'selected' : ''}>Rebote</option>
-        </select>
-      </div>
-    </div>
-  `).join('');
-}
-function updateBannerImageFromUrl(idx, url) {
-  bannersConfig.slides[idx].bgImage = url;
-  bannersConfig.slides[idx].bgColor = '';
-  updateBannerPreview(idx, url);
-  saveFullData();
-  renderBanners();
-}
-function addBannerImageUrl(idx) {
-  const url = prompt('Ingresá la URL de la imagen:');
-  if (url && url.trim()) {
-    bannersConfig.slides[idx].bgImage = url.trim();
-    bannersConfig.slides[idx].bgColor = '';
-    const input = document.getElementById(`bannerBgImage_${idx}`);
-    if (input) input.value = url.trim();
-    updateBannerPreview(idx, url.trim());
-    notify('✅ URL de imagen agregada', 'success');
-    saveFullData();
-    renderBanners();
-  }
-}
-function toggleBannerActive(idx, isActive) {
-  if (bannersConfig.slides[idx]) bannersConfig.slides[idx].active = isActive;
-  saveFullData();
-  renderBanners();
-}
-function addNewBanner() {
-  const newId = 'b' + Date.now();
-  bannersConfig.slides.push({
-    id: newId,
-    title: "Nuevo Banner",
-    subtitle: "Descripción del banner",
-    bgImage: "",
-    bgColor: "",
-    searchFilter: "",
-    animation: "fade",
-    active: true
-  });
-  renderBannerItemsList();
-  notify('✅ Nuevo banner agregado', 'success');
-  saveFullData();
-}
-function deleteBanner(idx) {
-  if (bannersConfig.slides.length <= 1) {
-    notify('⚠️ Debe haber al menos un banner activo', 'error');
-    return;
-  }
-  if (confirm('¿Eliminar este banner?')) {
-    bannersConfig.slides.splice(idx, 1);
-    renderBannerItemsList();
-    renderBanners();
-    notify('🗑️ Banner eliminado', 'info');
-    saveFullData();
-  }
-}
-function saveAllBanners() {
-  for (let i = 0; i < bannersConfig.slides.length; i++) {
-    const titleInput = document.getElementById(`bannerTitle_${i}`);
-    const subtitleInput = document.getElementById(`bannerSubtitle_${i}`);
-    const bgImageInput = document.getElementById(`bannerBgImage_${i}`);
-    const searchFilterInput = document.getElementById(`bannerSearchFilter_${i}`);
-    const animationSelect = document.getElementById(`bannerAnimation_${i}`);
-    if (titleInput) bannersConfig.slides[i].title = titleInput.value;
-    if (subtitleInput) bannersConfig.slides[i].subtitle = subtitleInput.value;
-    if (bgImageInput && bgImageInput.value) {
-      bannersConfig.slides[i].bgImage = bgImageInput.value;
-      bannersConfig.slides[i].bgColor = '';
-    }
-    if (searchFilterInput) bannersConfig.slides[i].searchFilter = searchFilterInput.value;
-    if (animationSelect) bannersConfig.slides[i].animation = animationSelect.value;
-  }
-  saveFullData();
-  renderBanners();
-  notify('✅ Banners guardados correctamente', 'success');
-  closeModal('bannerConfigModal');
-}
-function renderBanners() {
-  const slidesContainer = document.querySelector('.banner-carousel');
-  if (!slidesContainer) return;
-  const activeSlides = bannersConfig.slides.filter(s => s.active);
-  if (activeSlides.length === 0) {
-    slidesContainer.innerHTML = '<div class="banner-slide active" style="background:linear-gradient(135deg,#1A1A2E 0%,#16213e 40%,#0f3460 100%);border:2px solid var(--primary);box-shadow:0 0 0 2px rgba(0,0,0,0.1);border-radius:var(--radius-lg)"><div class="banner-content"><h2>Bienvenido<br><span>a nuestra tienda</span></h2><p>Descubre nuestros productos</p></div></div><div class="banner-dots" id="bannerDots"><div class="banner-dot active"></div></div>';
-    return;
-  }
-  slidesContainer.innerHTML = activeSlides.map((slide, idx) => {
-    let bgStyle = '';
-    if (slide.bgImage) {
-      bgStyle = `url('${slide.bgImage}') center center / cover no-repeat`;
-    } else if (slide.bgColor) {
-      bgStyle = slide.bgColor;
-    } else {
-      bgStyle = 'linear-gradient(135deg,#1A1A2E 0%,#16213e 40%,#0f3460 100%)';
-    }
-    const animationClass = `banner-animation-${slide.animation}`;
-    return `
-      <div class="banner-slide ${idx === 0 ? 'active' : ''} ${animationClass}" data-banner-idx="${idx}" style="background: ${bgStyle}; border: 2px solid var(--primary); box-shadow: 0 0 0 2px rgba(0,0,0,0.1); border-radius: var(--radius-lg);">
-        <div class="banner-content">
-          <h2>${slide.title}</h2>
-          <p>${slide.subtitle}</p>
-        </div>
-      </div>
-    `;
-  }).join('') + `<div class="banner-dots" id="bannerDots">${activeSlides.map((_, idx) => `<div class="banner-dot ${idx === 0 ? 'active' : ''}" onclick="event.stopPropagation();goToBannerSlide(${idx})"></div>`).join('')}</div>`;
-  currentBanner = 0;
-  startBannerCarousel();
-}
-function goToBannerSlide(n) {
-  const slides = document.querySelectorAll('.banner-slide');
-  const dots = document.querySelectorAll('.banner-dot');
-  if (!slides.length) return;
-  slides.forEach(s => s.classList.remove('active'));
-  dots.forEach(d => d.classList.remove('active'));
-  if (slides[n]) slides[n].classList.add('active');
-  if (dots[n]) dots[n].classList.add('active');
-  currentBanner = n;
-}
-function startBannerCarousel() {
-  clearInterval(bannerInterval);
-  bannerInterval = setInterval(() => {
-    const slides = document.querySelectorAll('.banner-slide');
-    if (slides.length > 1) {
-      goToBannerSlide((currentBanner + 1) % slides.length);
-    }
-  }, 5000);
-}
-
+// ==================== FUNCIONES DE ESTILO ====================
 function applyTextColors() { const colors = DB.config.textColors; if (!colors) return; document.documentElement.style.setProperty('--text', colors.main); document.documentElement.style.setProperty('--text2', colors.secondary); document.documentElement.style.setProperty('--text3', colors.tertiary); document.documentElement.style.setProperty('--border', colors.border); document.documentElement.style.setProperty('--bg', colors.bg); document.documentElement.style.setProperty('--surface', colors.surface); document.documentElement.style.setProperty('--bg2', colors.surface); document.documentElement.style.setProperty('--bg3', colors.border + '40'); }
-function openTextColorModal() { const colors = DB.config.textColors; document.getElementById('textColorMain').value = colors.main || '#1A1A2E'; document.getElementById('textColorSec').value = colors.secondary || '#555'; document.getElementById('textColorTer').value = colors.tertiary || '#888'; document.getElementById('borderColor').value = colors.border || '#E0E0E0'; document.getElementById('bgColor').value = colors.bg || '#F5F5F5'; document.getElementById('surfaceColor').value = colors.surface || '#FFF'; openModal('textColorModal'); }
+function openTextColorModal() { if (currentUser?.role !== 'admin') { notify('⛔ Solo el administrador puede modificar colores', 'error'); return; } const colors = DB.config.textColors; document.getElementById('textColorMain').value = colors.main || '#1A1A2E'; document.getElementById('textColorSec').value = colors.secondary || '#555'; document.getElementById('textColorTer').value = colors.tertiary || '#888'; document.getElementById('borderColor').value = colors.border || '#E0E0E0'; document.getElementById('bgColor').value = colors.bg || '#F5F5F5'; document.getElementById('surfaceColor').value = colors.surface || '#FFF'; openModal('textColorModal'); }
 function saveTextColors() { DB.config.textColors = { main: document.getElementById('textColorMain').value, secondary: document.getElementById('textColorSec').value, tertiary: document.getElementById('textColorTer').value, border: document.getElementById('borderColor').value, bg: document.getElementById('bgColor').value, surface: document.getElementById('surfaceColor').value }; applyTextColors(); saveFullData(); closeModal('textColorModal'); notify('✅ Colores actualizados'); }
 function resetTextColors() { DB.config.textColors = { main: '#1A1A2E', secondary: '#555', tertiary: '#888', border: '#E0E0E0', bg: '#F5F5F5', surface: '#FFF' }; applyTextColors(); saveFullData(); closeModal('textColorModal'); notify('🔄 Colores restaurados'); }
 function toggleAutoContrast() { DB.config.autoContrast = !DB.config.autoContrast; if (DB.config.autoContrast) { document.body.classList.add('high-contrast'); notify('🌓 Alto contraste activado'); } else { document.body.classList.remove('high-contrast'); notify('🌓 Alto contraste desactivado'); } saveFullData(); }
-
-function openBgSelectorModal() { openModal('bgSelectorModal'); }
-function previewBgUrlRealtime() { const url = document.getElementById('bgUrlInput').value.trim(); const preview = document.getElementById('bgPreviewImage'); if (url && preview) { preview.src = url; preview.onerror = () => { preview.src = ''; notify('❌ Error al cargar la imagen desde la URL', 'error'); }; } }
-function setupFilePreview() { const fileInput = document.getElementById('bgFileInput'); if (fileInput && !fileInput.hasListener) { fileInput.hasListener = true; fileInput.addEventListener('change', function(e) { const file = e.target.files[0]; const preview = document.getElementById('bgFilePreview'); if (file && preview) { if (file.size > 5 * 1024 * 1024) { notify('⚠️ El archivo no debe superar los 5MB', 'error'); preview.src = ''; return; } const reader = new FileReader(); reader.onload = function(ev) { preview.src = ev.target.result; }; reader.readAsDataURL(file); } else if (preview) { preview.src = ''; } }); } }
+function openBgSelectorModal() { if (currentUser?.role !== 'admin') { notify('⛔ Solo el administrador puede cambiar el fondo', 'error'); return; } openModal('bgSelectorModal'); }
 function applyUrlBg() { const url = document.getElementById('bgUrlInput').value.trim(); const fitMode = document.getElementById('bgFitMode').value; if (!url) { notify('⚠️ Ingresá una URL válida', 'error'); return; } document.body.style.backgroundImage = `url('${url}')`; document.body.style.backgroundRepeat = fitMode === 'repeat' ? 'repeat' : 'no-repeat'; document.body.style.backgroundPosition = 'center center'; document.body.style.backgroundAttachment = 'fixed'; if (fitMode === 'cover') { document.body.style.backgroundSize = 'cover'; } else if (fitMode === 'contain') { document.body.style.backgroundSize = 'contain'; document.body.style.backgroundColor = 'var(--bg)'; } else if (fitMode === 'repeat') { document.body.style.backgroundSize = 'auto'; } else if (fitMode === 'stretch') { document.body.style.backgroundSize = '100% 100%'; } DB.config.bgType = 'url'; DB.config.customBgUrl = url; DB.config.bgValue = url; DB.config.bgFitMode = fitMode; DB.config.autoSeasonal = false; DB.config.seasonalBg = null; saveFullData(); closeModal('bgSelectorModal'); notify('✅ Fondo por URL aplicado correctamente', 'success'); }
-async function applyFileBg() { const fileInput = document.getElementById('bgFileInput'); const file = fileInput.files[0]; const fitMode = document.getElementById('bgFitMode').value; if (!file) { notify('⚠️ Seleccioná un archivo de imagen', 'error'); return; } if (file.size > 5 * 1024 * 1024) { notify('⚠️ El archivo no debe superar los 5MB', 'error'); return; } const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp']; if (!validTypes.includes(file.type)) { notify('⚠️ Formato no soportado. Usá JPG, PNG, GIF, WEBP o BMP', 'error'); return; } try { const base64 = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.readAsDataURL(file); reader.onload = () => resolve(reader.result); reader.onerror = error => reject(error); }); document.body.style.backgroundImage = `url('${base64}')`; document.body.style.backgroundRepeat = fitMode === 'repeat' ? 'repeat' : 'no-repeat'; document.body.style.backgroundPosition = 'center center'; document.body.style.backgroundAttachment = 'fixed'; if (fitMode === 'cover') { document.body.style.backgroundSize = 'cover'; } else if (fitMode === 'contain') { document.body.style.backgroundSize = 'contain'; document.body.style.backgroundColor = 'var(--bg)'; } else if (fitMode === 'repeat') { document.body.style.backgroundSize = 'auto'; } else if (fitMode === 'stretch') { document.body.style.backgroundSize = '100% 100%'; } DB.config.bgType = 'file'; DB.config.customBgFile = base64; DB.config.bgValue = base64; DB.config.bgFitMode = fitMode; DB.config.autoSeasonal = false; DB.config.seasonalBg = null; saveFullData(); closeModal('bgSelectorModal'); notify('✅ Fondo desde archivo aplicado correctamente', 'success'); } catch(err) { notify('❌ Error al procesar la imagen', 'error'); } }
-function setPresetBg(preset) { const fitMode = document.getElementById('bgFitMode')?.value || 'cover'; const presets = { default: '', gradient1: 'linear-gradient(135deg,#667eea 0%,#764ba2 100%)', gradient2: 'linear-gradient(135deg,#f093fb 0%,#f5576c 100%)', gradient3: 'linear-gradient(135deg,#4facfe 0%,#00f2fe 100%)', gradient4: 'linear-gradient(135deg,#43e97b 0%,#38f9d7 100%)', dark: '#1A1A2E' }; const bgValue = presets[preset]; document.body.style.backgroundImage = ''; if (preset === 'default') { document.body.style.background = ''; document.body.style.backgroundColor = ''; document.body.style.backgroundSize = ''; document.body.style.backgroundRepeat = ''; document.body.style.backgroundAttachment = ''; const currentTheme = DB.config.theme; if (currentTheme && currentTheme !== 'light') { document.documentElement.setAttribute('data-theme', currentTheme); } else { document.documentElement.removeAttribute('data-theme'); } } else { document.body.style.background = bgValue; document.body.style.backgroundSize = fitMode === 'cover' ? 'cover' : (fitMode === 'contain' ? 'contain' : 'auto'); document.body.style.backgroundRepeat = fitMode === 'repeat' ? 'repeat' : 'no-repeat'; document.body.style.backgroundAttachment = 'fixed'; document.body.style.backgroundPosition = 'center center'; } DB.config.bgType = 'preset'; DB.config.customBg = bgValue; DB.config.bgValue = preset; DB.config.bgFitMode = fitMode; DB.config.autoSeasonal = false; DB.config.seasonalBg = null; saveFullData(); closeModal('bgSelectorModal'); notify('✅ Fondo predeterminado aplicado', 'success'); }
+async function applyFileBg() { const fileInput = document.getElementById('bgFileInput'); const file = fileInput.files[0]; const fitMode = document.getElementById('bgFitMode').value; if (!file) { notify('⚠️ Seleccioná un archivo de imagen', 'error'); return; } if (file.size > 5 * 1024 * 1024) { notify('⚠️ El archivo no debe superar los 5MB', 'error'); return; } try { const base64 = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.readAsDataURL(file); reader.onload = () => resolve(reader.result); reader.onerror = error => reject(error); }); document.body.style.backgroundImage = `url('${base64}')`; document.body.style.backgroundRepeat = fitMode === 'repeat' ? 'repeat' : 'no-repeat'; document.body.style.backgroundPosition = 'center center'; document.body.style.backgroundAttachment = 'fixed'; if (fitMode === 'cover') { document.body.style.backgroundSize = 'cover'; } else if (fitMode === 'contain') { document.body.style.backgroundSize = 'contain'; document.body.style.backgroundColor = 'var(--bg)'; } else if (fitMode === 'repeat') { document.body.style.backgroundSize = 'auto'; } else if (fitMode === 'stretch') { document.body.style.backgroundSize = '100% 100%'; } DB.config.bgType = 'file'; DB.config.customBgFile = base64; DB.config.bgValue = base64; DB.config.bgFitMode = fitMode; DB.config.autoSeasonal = false; DB.config.seasonalBg = null; saveFullData(); closeModal('bgSelectorModal'); notify('✅ Fondo desde archivo aplicado correctamente', 'success'); } catch(err) { notify('❌ Error al procesar la imagen', 'error'); } }
 function resetBgToDefault() { document.body.style.background = ''; document.body.style.backgroundColor = ''; document.body.style.backgroundImage = ''; document.body.style.backgroundSize = ''; document.body.style.backgroundRepeat = ''; document.body.style.backgroundAttachment = ''; document.body.style.backgroundPosition = ''; const currentTheme = DB.config.theme; if (currentTheme && currentTheme !== 'light') { document.documentElement.setAttribute('data-theme', currentTheme); } else { document.documentElement.removeAttribute('data-theme'); } DB.config.bgType = 'default'; DB.config.customBg = null; DB.config.customBgUrl = null; DB.config.customBgFile = null; DB.config.bgValue = null; DB.config.bgFitMode = 'cover'; DB.config.autoSeasonal = false; DB.config.seasonalBg = null; saveFullData(); closeModal('bgSelectorModal'); notify('🔄 Fondo restaurado al valor por defecto', 'success'); }
-function selectFitMode(mode) { document.getElementById('bgFitMode').value = mode; const options = document.querySelectorAll('.bg-mode-option'); options.forEach(opt => { opt.style.borderColor = 'var(--border)'; opt.style.background = 'transparent'; }); const index = { cover: 0, contain: 1, repeat: 2, stretch: 3 }[mode]; if (options[index]) { options[index].style.borderColor = 'var(--primary)'; options[index].style.background = 'rgba(255,230,0,0.1)'; } }
+function selectFitMode(mode) { document.getElementById('bgFitMode').value = mode; }
 function createBgSelectorModal() { if (document.getElementById('bgSelectorModal')) return; }
 function addBgSelectorButton() { const container = document.getElementById('bgSelectorButtonContainer'); if (!container) return; if (container.querySelector('button')) return; const btn = document.createElement('button'); btn.className = 'btn-primary'; btn.style.width = '100%'; btn.style.marginBottom = '20px'; btn.style.background = 'linear-gradient(135deg,#667eea,#764ba2)'; btn.innerHTML = '🖼️ Cambiar Fondo de Pantalla (URL o Archivo Local)'; btn.onclick = () => openBgSelectorModal(); container.appendChild(btn); }
 function applyStoredConfig() { const c = DB.config; if (c.theme && c.theme !== 'light') document.documentElement.setAttribute('data-theme', c.theme); else document.documentElement.removeAttribute('data-theme'); if (c.primaryColor) document.documentElement.style.setProperty('--primary', c.primaryColor); if (c.font) document.documentElement.style.setProperty('--font', `'${c.font}', sans-serif`); if (c.textColors) applyTextColors(); if (c.autoContrast) document.body.classList.add('high-contrast'); const fit = c.bgFitMode || 'cover'; if (c.bgType === 'url' && c.customBgUrl) { document.body.style.backgroundImage = `url('${c.customBgUrl}')`; document.body.style.backgroundSize = fit === 'cover' ? 'cover' : fit === 'contain' ? 'contain' : fit === 'repeat' ? 'auto' : '100% 100%'; document.body.style.backgroundRepeat = fit === 'repeat' ? 'repeat' : 'no-repeat'; document.body.style.backgroundAttachment = 'fixed'; } else if (c.bgType === 'file' && c.customBgFile) { document.body.style.backgroundImage = `url('${c.customBgFile}')`; document.body.style.backgroundSize = fit === 'cover' ? 'cover' : fit === 'contain' ? 'contain' : fit === 'repeat' ? 'auto' : '100% 100%'; document.body.style.backgroundRepeat = fit === 'repeat' ? 'repeat' : 'no-repeat'; document.body.style.backgroundAttachment = 'fixed'; } else if (c.bgType === 'preset' && c.customBg) { document.body.style.background = c.customBg; document.body.style.backgroundSize = fit === 'cover' ? 'cover' : fit === 'contain' ? 'contain' : fit === 'repeat' ? 'auto' : '100% 100%'; document.body.style.backgroundRepeat = fit === 'repeat' ? 'repeat' : 'no-repeat'; document.body.style.backgroundAttachment = 'fixed'; document.body.style.backgroundPosition = 'center center'; } else if (c.autoSeasonal) { const months = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']; const month = months[new Date().getMonth()]; if (seasonalBackgrounds[month]) document.body.style.background = seasonalBackgrounds[month].gradient; } else if (c.seasonalBg && seasonalBackgrounds[c.seasonalBg]) { document.body.style.background = seasonalBackgrounds[c.seasonalBg].gradient; } }
 
+// ==================== FUNCIONES DE PRODUCTOS E INVENTARIO ====================
 function fileToBase64(file) { return new Promise((resolve, reject) => { const reader = new FileReader(); reader.readAsDataURL(file); reader.onload = () => resolve(reader.result); reader.onerror = error => reject(error); }); }
-async function uploadLocalImage() { const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*'; input.multiple = true; input.onchange = async (e) => { const files = Array.from(e.target.files); if (files.length === 0) return; let addedCount = 0; for (const file of files) { if (file.size > 2 * 1024 * 1024) { notify(`⚠️ "${file.name}" excede 2MB, no se agregó`, 'error'); continue; } try { const base64 = await fileToBase64(file); photoUrls.push(base64); addedCount++; } catch(err) { console.error('Error al convertir imagen:', err); } } if (addedCount > 0) { renderPhotoList(); notify(`✅ ${addedCount} imagen(es) agregada(s)`, 'success'); } }; input.click(); }
-function addPhotoUrlManually() { const url = prompt('Ingresá la URL de la imagen (https://...):'); if (url && url.trim()) { photoUrls.push(url.trim()); renderPhotoList(); notify('✅ URL de imagen agregada', 'success'); } }
+async function uploadLocalImage() { if (currentUser?.role !== 'admin') { notify('⛔ Solo el administrador puede agregar imágenes', 'error'); return; } const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*'; input.multiple = true; input.onchange = async (e) => { const files = Array.from(e.target.files); if (files.length === 0) return; let addedCount = 0; for (const file of files) { if (file.size > 2 * 1024 * 1024) { notify(`⚠️ "${file.name}" excede 2MB, no se agregó`, 'error'); continue; } try { const base64 = await fileToBase64(file); photoUrls.push(base64); addedCount++; } catch(err) { console.error('Error al convertir imagen:', err); } } if (addedCount > 0) { renderPhotoList(); notify(`✅ ${addedCount} imagen(es) agregada(s)`, 'success'); } }; input.click(); }
+function addPhotoUrlManually() { if (currentUser?.role !== 'admin') { notify('⛔ Solo el administrador puede agregar imágenes', 'error'); return; } const url = prompt('Ingresá la URL de la imagen (https://...):'); if (url && url.trim()) { photoUrls.push(url.trim()); renderPhotoList(); notify('✅ URL de imagen agregada', 'success'); } }
 function renderPhotoList() { const list = document.getElementById('photoList'); if (!list) return; if (photoUrls.length === 0) { list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text3);border:1px dashed var(--border);border-radius:var(--radius-sm);margin-bottom:8px">📸 No hay imágenes. Subí una desde tu PC o agregá una URL.</div>'; } else { list.innerHTML = photoUrls.map((url, i) => `<div class="photo-item"><img src="${url}" onerror="this.src='https://via.placeholder.com/50?text=Error'" alt="Preview ${i+1}"><input type="text" value="${escapeHtml(url)}" placeholder="URL o base64" oninput="photoUrls[${i}]=this.value;updatePhotoPreview(this,${i})"><button class="photo-remove" onclick="removePhoto(${i})" title="Eliminar">🗑️</button></div>`).join(''); } const parent = list.parentElement; let existingButtons = parent.querySelector('.photo-buttons-container'); if (!existingButtons) { const buttonContainer = document.createElement('div'); buttonContainer.className = 'photo-buttons-container'; buttonContainer.innerHTML = `<button class="btn-add-photo" onclick="uploadLocalImage()" style="flex:1;background:var(--primary);color:var(--secondary);border-color:var(--primary)">📁 Subir imagen de mi PC</button><button class="btn-add-photo" onclick="addPhotoUrlManually()" style="flex:1">🔗 Agregar URL manual</button>`; parent.appendChild(buttonContainer); } }
 function updatePhotoPreview(input, i) { photoUrls[i] = input.value; const img = input.previousElementSibling; if (img) img.src = input.value || 'https://via.placeholder.com/50?text=Preview'; }
-function removePhoto(i) { photoUrls.splice(i, 1); renderPhotoList(); notify('🗑️ Imagen eliminada', 'info'); }
-
-function seedDemoData() {
-  if (DB.products.length > 0) return;
-  const demos = [
-    { id:'P001', name:'Pantalla LED 15.6" FHD IPS', description:'Pantalla de alta definición para notebooks', partNumber:'LP156WF6', brand:'HP', model:'Pavilion 15', componentType:'Interno', partSpecific:'Pantalla', images:['https://images.unsplash.com/photo-1593640408182-31c228b37ac2?w=400&h=400&fit=crop'], cost:45, margin:60, finalPrice:72, stock:8, badge:'Nuevo' },
-    { id:'P002', name:'Teclado HP Pavilion 15 Español', description:'Teclado retroiluminado', partNumber:'TPN-Q173', brand:'HP', model:'Pavilion 15', componentType:'Externo', partSpecific:'Teclado', images:['https://images.unsplash.com/photo-1541140532154-b024d705b90a?w=400&h=400&fit=crop'], cost:22, margin:50, finalPrice:33, stock:15, badge:'Nuevo' }
-  ];
-  DB.products = demos;
-  DB.categories.models = { 'HP': ['Pavilion 15','Envy 13'], 'Dell': ['Inspiron 14'], 'Lenovo': ['ThinkPad T490'], 'Asus': ['ZenBook 14'], 'Samsung': ['Universal'] };
-  if (DB.users.length === 0) {
-    DB.users.push({ name: 'Cliente Demo', email: 'cliente@demo.com', phone: '+5493510000000', address: 'Calle Demo 123', password: 'cliente123', role: 'user', createdAt: new Date().toISOString(), updatedAt: Date.now() });
-  }
-  if (DB.orders.length === 0) {
-    DB.orders.push({ id: 'ORD-DEMO001', userId: 'cliente@demo.com', userName: 'Cliente Demo', address: 'Calle Demo 123', phone: '+5493510000000', email: 'cliente@demo.com', payment: 'Efectivo', items: [{ id: 'P001', name: 'Pantalla LED 15.6" FHD IPS', qty: 1, price: 72 }], total: 72, status: 'Confirmado', date: new Date().toLocaleString() });
-  }
-  saveFullData();
-}
-
+function removePhoto(i) { if (currentUser?.role !== 'admin') { notify('⛔ Solo el administrador puede eliminar imágenes', 'error'); return; } photoUrls.splice(i, 1); renderPhotoList(); notify('🗑️ Imagen eliminada', 'info'); }
 function renderProducts() { const grid = document.getElementById('productsGrid'); if (!grid) return; let prods = DB.products.filter(p => p && p.stock > 0); if (searchQuery) { const q = searchQuery.toLowerCase(); prods = prods.filter(p => (p.name || '').toLowerCase().includes(q) || (p.brand || '').toLowerCase().includes(q) || (p.model || '').toLowerCase().includes(q) || (p.partNumber || '').toLowerCase().includes(q) || (p.partSpecific || '').toLowerCase().includes(q) || (p.description || '').toLowerCase().includes(q)); } if (currentFilter !== 'all') prods = prods.filter(p => p.badge === currentFilter); const sort = document.getElementById('sortSelect')?.value || 'featured'; if (sort === 'price_asc') prods.sort((a,b) => (a.finalPrice||0) - (b.finalPrice||0)); else if (sort === 'price_desc') prods.sort((a,b) => (b.finalPrice||0) - (a.finalPrice||0)); else if (sort === 'az') prods.sort((a,b) => (a.name||'').localeCompare(b.name||'')); else if (sort === 'za') prods.sort((a,b) => (b.name||'').localeCompare(a.name||'')); const countSpan = document.getElementById('resultsCount'); if (countSpan) countSpan.textContent = `${prods.length} producto${prods.length !== 1 ? 's' : ''}`; if (prods.length === 0) { grid.innerHTML = `<div class="no-products" style="grid-column:1/-1"><div class="icon">🔍</div><h3>Sin resultados</h3><p>${searchQuery ? 'No se encontraron productos para "' + escapeHtml(searchQuery) + '"' : 'No hay productos disponibles'}</p></div>`; return; } grid.innerHTML = prods.map(p => `<div class="product-card" onclick="openProduct('${p.id}')"><div class="card-img-wrap"><img src="${p.images && p.images[0] ? p.images[0] : 'https://via.placeholder.com/300'}" alt="${escapeHtml(p.name)}" onerror="this.src='https://via.placeholder.com/300'"><div class="card-badges">${p.badge ? `<span class="badge badge-${p.badge.toLowerCase()}">${p.badge}</span>` : ''}</div></div><div class="card-body"><div class="card-brand">${[p.brand, p.model].filter(Boolean).join(' • ')}</div><div class="card-name">${escapeHtml(p.name)}</div>${p.partNumber ? `<div class="card-part">P/N: ${p.partNumber}</div>` : ''}<div class="card-price"><span class="currency">$</span>${formatNum(p.finalPrice)}</div><div class="card-stock">${stockLabel(p.stock)}</div></div><div class="card-footer"><button class="btn-cart" onclick="event.stopPropagation();addToCart('${p.id}')">🛒 Agregar</button><button class="btn-share" onclick="event.stopPropagation();openShare('${p.id}')">📤</button></div></div>`).join(''); }
 function handleSearch(val) { searchQuery = val; renderProducts(); }
 function setFilter(val, el) { currentFilter = val; document.querySelectorAll('.filter-chips .chip').forEach(c => c.classList.remove('active')); if (el) el.classList.add('active'); renderProducts(); }
@@ -1783,41 +1542,36 @@ function clearCart() { cart = []; saveFullData(); updateCartCount(); renderCart(
 function openCheckout() { if (!currentUser) { closeModal('cartModal'); openModal('authModal'); notify('ℹ️ Inicia sesión para continuar', 'info'); return; } if (!cart.length) { notify('⚠️ Carrito vacío', 'error'); return; } closeModal('cartModal'); let total = cart.reduce((s, c) => { const p = DB.products.find(x => x.id === c.id); return s + (p ? p.finalPrice * c.qty : 0); }, 0); document.getElementById('checkoutBody').innerHTML = `<div><h3>Resumen</h3><div style="background:var(--surface2);padding:14px;border-radius:var(--radius-sm);margin-bottom:20px">${cart.map(c => { const p = DB.products.find(x => x.id === c.id); return p ? `<div style="display:flex;justify-content:space-between"><span>${escapeHtml(p.name)} x${c.qty}</span><span>$${formatNum(p.finalPrice * c.qty)}</span></div>` : ''; }).join('')}<div style="border-top:1px solid var(--border);margin-top:8px;padding-top:8px;display:flex;justify-content:space-between;font-weight:800"><span>Total</span><span>$${formatNum(total)}</span></div></div><h3>Datos de envío</h3><div class="form-group"><label>Nombre</label><input type="text" id="chkName" value="${escapeHtml(currentUser.name || '')}"></div><div class="form-row"><div class="form-group"><label>Teléfono</label><input type="tel" id="chkPhone" value="${escapeHtml(currentUser.phone || '')}"></div><div class="form-group"><label>Email</label><input type="email" id="chkEmail" value="${escapeHtml(currentUser.email || '')}"></div></div><div class="form-group"><label>Dirección</label><input type="text" id="chkAddress" value="${escapeHtml(currentUser.address || '')}"></div><div class="form-row"><div class="form-group"><label>Ciudad</label><input type="text" id="chkCity"></div><div class="form-group"><label>CP</label><input type="text" id="chkZip"></div></div><div class="form-group"><label>Notas</label><textarea id="chkNotes"></textarea></div><h3>Pago</h3><div class="payment-methods"><div class="payment-opt" onclick="selectPayment('Efectivo',this)"><div class="icon">💵</div><div class="label">Efectivo</div></div><div class="payment-opt" onclick="selectPayment('Transferencia',this)"><div class="icon">🏦</div><div class="label">Transferencia</div></div><div class="payment-opt" onclick="selectPayment('Tarjeta',this)"><div class="icon">💳</div><div class="label">Tarjeta</div></div><div class="payment-opt" onclick="selectPayment('MercadoPago',this)"><div class="icon">🔵</div><div class="label">MercadoPago</div></div></div><div id="paymentSelected"></div><button class="btn-primary" onclick="confirmOrder()">✅ Confirmar pedido — $${formatNum(total)}</button></div>`; window._selectedPayment = ''; openModal('checkoutModal'); }
 function selectPayment(method, el) { document.querySelectorAll('.payment-opt').forEach(o => o.classList.remove('selected')); if (el) el.classList.add('selected'); window._selectedPayment = method; document.getElementById('paymentSelected').textContent = `Método: ${method}`; }
 function confirmOrder() { if (!window._selectedPayment) { notify('⚠️ Seleccione método de pago', 'error'); return; } const name = document.getElementById('chkName').value.trim(); const address = document.getElementById('chkAddress').value.trim(); if (!name || !address) { notify('⚠️ Complete nombre y dirección', 'error'); return; } const orderItems = []; for (const c of cart) { const p = DB.products.find(x => x.id === c.id); if (p) { p.stock -= c.qty; if (p.stock < 0) p.stock = 0; orderItems.push({ id: p.id, name: p.name, qty: c.qty, price: p.finalPrice }); } } const total = orderItems.reduce((s, i) => s + i.price * i.qty, 0); const orderId = 'ORD-' + Date.now().toString(36).toUpperCase(); const order = { id: orderId, userId: currentUser.email, userName: name, address: address, phone: document.getElementById('chkPhone').value, email: document.getElementById('chkEmail').value || currentUser.email, notes: document.getElementById('chkNotes').value, payment: window._selectedPayment, items: orderItems, total: total, status: 'Pendiente', date: new Date().toLocaleString() }; DB.orders.unshift(order); cart = []; saveFullData(); updateCartCount(); renderProducts(); document.getElementById('checkoutBody').innerHTML = `<div class="confirm-screen"><div class="confirm-icon">🎉</div><h2>¡Pedido confirmado!</h2><div class="order-code">${orderId}</div><button class="btn-primary" onclick="closeModal('checkoutModal')">← Volver</button></div>`; renderAllOrders(); renderHistoryList(); renderNewSaleNotification(); notify('🎉 ¡Pedido realizado!'); }
-
 function renderAllOrders() { const list = document.getElementById('allOrdersList'); if (!list) return; const active = DB.orders.filter(o => o.status !== 'Entregado' && o.status !== 'Cancelado' && o.status !== 'Devuelto'); if (!active.length) { list.innerHTML = '<p style="text-align:center;padding:40px">📭 No hay pedidos pendientes</p>'; return; } list.innerHTML = active.map(o => renderOrderCard(o, true)).join(''); }
-function renderOrderCard(order, adminView) { const statusClass = { Pendiente: 'status-pendiente', Confirmado: 'status-confirmado', Entregado: 'status-entregado', Cancelado: 'status-cancelado', Devuelto: 'status-devuelto' }[order.status] || 'status-pendiente'; const client = DB.users.find(u => u.email === order.userId); const clientPhone = client?.phone || order.phone || ''; return `<div class="order-card" data-order-id="${order.id}"><div class="order-header"><div><div class="order-id">${order.id}</div><div style="font-size:0.82rem">${order.date} — ${escapeHtml(order.userName)}</div>${clientPhone ? `<div style="font-size:0.75rem">📱 ${escapeHtml(clientPhone)}</div>` : ''}</div><span class="order-status ${statusClass}">${order.status}</span></div><div class="order-items-summary">${order.items.map(i => `<span class="order-item-tag">${escapeHtml(i.name)} x${i.qty}</span>`).join('')}</div><div class="order-footer"><div>💳 ${order.payment}</div><div><span class="order-total">$${formatNum(order.total)}</span>${adminView ? `<div class="order-actions">${order.status === 'Pendiente' ? `<button class="tbl-btn tbl-edit" onclick="updateOrderStatus('${order.id}','Confirmado')">✅ Confirmar</button>` : ''}${order.status === 'Confirmado' ? `<button class="tbl-btn btn-success" onclick="markAsDelivered('${order.id}')">📦 Entregado</button>` : ''}${order.status !== 'Entregado' && order.status !== 'Cancelado' ? `<button class="tbl-btn btn-wa" onclick="sendOrderWhatsApp('${order.id}','status')">📱 Estado</button>` : ''}${order.status !== 'Cancelado' ? `<button class="tbl-btn tbl-del" onclick="updateOrderStatus('${order.id}','Cancelado')">❌ Cancelar</button>` : ''}</div>` : ''}</div></div></div>`; }
-function updateOrderStatus(orderId, status) { const order = DB.orders.find(o => o.id === orderId); if (!order) return; const prev = order.status; order.status = status; if (status !== 'Pendiente' && status !== 'Confirmado' && !DB.reviewedSales.includes(orderId)) DB.reviewedSales.push(orderId); if ((status === 'Cancelado' || status === 'Devuelto') && prev !== 'Cancelado' && prev !== 'Devuelto') { order.items.forEach(item => { const p = DB.products.find(x => x.id === item.id); if (p) p.stock += item.qty; }); renderProducts(); } saveFullData(); renderAllOrders(); renderStats(); renderDeliveredList(); renderHistoryList(); renderNewSaleNotification(); notify(`✅ Pedido ${orderId} → ${status}`); }
-function markAsDelivered(orderId) { const order = DB.orders.find(o => o.id === orderId); if (!order) return; const deliveryDate = new Date().toLocaleString(); const record = { id: 'DEL-' + Date.now(), orderId: order.id, orderDate: order.date, clientName: order.userName, clientPhone: order.phone || '', items: order.items.map(i => ({ ...i, brand: DB.products.find(p => p.id === i.id)?.brand || '' })), total: order.total, deliveryDate: deliveryDate, deliveryTimestamp: new Date().toISOString(), notes: '', status: 'Entregado' }; DB.deliveredOrders.unshift(record); if (record.clientPhone) { const storeName = DB.config.storeName; const itemsList = record.items.map(i => `• ${i.name} x${i.qty} - $${formatNum(i.price * i.qty)}`).join('\n'); const msg = `🟢 *PRODUCTO RETIRADO* ✅\n\n📦 Pedido: ${order.id}\n👤 Cliente: ${escapeHtml(record.clientName)}\n\nProductos:\n${itemsList}\n💰 Total: $${formatNum(order.total)}\n📅 Retiro: ${deliveryDate}\n\n⚠️ *POLÍTICA DE DEVOLUCIÓN:* Tiene 24 horas para devolución.\n\n¡Gracias por confiar en ${storeName}!`; window.open(`https://wa.me/${record.clientPhone.replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`,'_blank'); } order.status = 'Entregado'; if (!DB.reviewedSales.includes(order.id)) DB.reviewedSales.push(order.id); saveFullData(); renderAllOrders(); renderDeliveredList(); renderStats(); renderHistoryList(); renderNewSaleNotification(); notify(`✅ Pedido ${orderId} entregado. WhatsApp enviado.`); }
+function renderOrderCard(order, adminView) { const statusClass = { Pendiente: 'status-pendiente', Confirmado: 'status-confirmado', Entregado: 'status-entregado', Cancelado: 'status-cancelado', Devuelto: 'status-devuelto' }[order.status] || 'status-pendiente'; const client = DB.users.find(u => u.email === order.userId); const clientPhone = client?.phone || order.phone || ''; return `<div class="order-card" data-order-id="${order.id}"><div class="order-header"><div><div class="order-id">${order.id}</div><div style="font-size:0.82rem">${order.date} — ${escapeHtml(order.userName)}</div>${clientPhone ? `<div style="font-size:0.75rem">📱 ${escapeHtml(clientPhone)}</div>` : ''}</div><span class="order-status ${statusClass}">${order.status}</span></div><div class="order-items-summary">${order.items.map(i => `<span class="order-item-tag">${escapeHtml(i.name)} x${i.qty}</span>`).join('')}</div><div class="order-footer"><div>💳 ${order.payment}</div><div><span class="order-total">$${formatNum(order.total)}</span>${adminView && currentUser?.role === 'admin' ? `<div class="order-actions">${order.status === 'Pendiente' ? `<button class="tbl-btn tbl-edit" onclick="updateOrderStatus('${order.id}','Confirmado')">✅ Confirmar</button>` : ''}${order.status === 'Confirmado' ? `<button class="tbl-btn btn-success" onclick="markAsDelivered('${order.id}')">📦 Entregado</button>` : ''}${order.status !== 'Entregado' && order.status !== 'Cancelado' ? `<button class="tbl-btn btn-wa" onclick="sendOrderWhatsApp('${order.id}','status')">📱 Estado</button>` : ''}${order.status !== 'Cancelado' ? `<button class="tbl-btn tbl-del" onclick="updateOrderStatus('${order.id}','Cancelado')">❌ Cancelar</button>` : ''}</div>` : ''}</div></div></div>`; }
+function updateOrderStatus(orderId, status) { if (currentUser?.role !== 'admin') { notify('⛔ Solo el administrador puede cambiar estados', 'error'); return; } const order = DB.orders.find(o => o.id === orderId); if (!order) return; const prev = order.status; order.status = status; if (status !== 'Pendiente' && status !== 'Confirmado' && !DB.reviewedSales.includes(orderId)) DB.reviewedSales.push(orderId); if ((status === 'Cancelado' || status === 'Devuelto') && prev !== 'Cancelado' && prev !== 'Devuelto') { order.items.forEach(item => { const p = DB.products.find(x => x.id === item.id); if (p) p.stock += item.qty; }); renderProducts(); } saveFullData(); renderAllOrders(); renderStats(); renderDeliveredList(); renderHistoryList(); renderNewSaleNotification(); notify(`✅ Pedido ${orderId} → ${status}`); }
+function markAsDelivered(orderId) { if (currentUser?.role !== 'admin') { notify('⛔ Solo el administrador puede marcar entregas', 'error'); return; } const order = DB.orders.find(o => o.id === orderId); if (!order) return; const deliveryDate = new Date().toLocaleString(); const record = { id: 'DEL-' + Date.now(), orderId: order.id, orderDate: order.date, clientName: order.userName, clientPhone: order.phone || '', items: order.items.map(i => ({ ...i, brand: DB.products.find(p => p.id === i.id)?.brand || '' })), total: order.total, deliveryDate: deliveryDate, deliveryTimestamp: new Date().toISOString(), notes: '', status: 'Entregado' }; DB.deliveredOrders.unshift(record); if (record.clientPhone) { const storeName = DB.config.storeName; const itemsList = record.items.map(i => `• ${i.name} x${i.qty} - $${formatNum(i.price * i.qty)}`).join('\n'); const msg = `🟢 *PRODUCTO RETIRADO* ✅\n\n📦 Pedido: ${order.id}\n👤 Cliente: ${escapeHtml(record.clientName)}\n\nProductos:\n${itemsList}\n💰 Total: $${formatNum(order.total)}\n📅 Retiro: ${deliveryDate}\n\n⚠️ *POLÍTICA DE DEVOLUCIÓN:* Tiene 24 horas para devolución.\n\n¡Gracias por confiar en ${storeName}!`; window.open(`https://wa.me/${record.clientPhone.replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`,'_blank'); } order.status = 'Entregado'; if (!DB.reviewedSales.includes(order.id)) DB.reviewedSales.push(order.id); saveFullData(); renderAllOrders(); renderDeliveredList(); renderStats(); renderHistoryList(); renderNewSaleNotification(); notify(`✅ Pedido ${orderId} entregado. WhatsApp enviado.`); }
 function sendOrderWhatsApp(orderId,type){ const order=DB.orders.find(o=>o.id===orderId); if(!order)return; const phone=order.phone; if(!phone){ notify('⚠️ Sin teléfono','error'); return; } const storeName=DB.config.storeName; let msg=''; if(type==='confirm') msg=`🟢 *COMPRA APROBADA* ✅\n\nPedido: ${order.id}\nTotal: $${formatNum(order.total)}\n\nEn breve nos contactamos.\n¡Gracias por confiar en ${storeName}!`; else if(type==='status') msg=`ℹ️ Estado de tu pedido #${order.id}: *${order.status}*\nTotal: $${formatNum(order.total)}`; if(msg) window.open(`https://wa.me/${phone.replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`,'_blank'); }
-
 function renderHistoryList() { const container = document.getElementById('historyOrdersList'); if (!container) return; let filtered = [...DB.orders]; if (historyStatusFilter !== 'all') filtered = filtered.filter(o => o.status === historyStatusFilter); const sort = document.getElementById('historySort')?.value || 'date_desc'; if (sort === 'date_desc') filtered.sort((a, b) => new Date(b.deliveryTimestamp || b.date) - new Date(a.deliveryTimestamp || a.date)); else if (sort === 'date_asc') filtered.sort((a, b) => new Date(a.deliveryTimestamp || a.date) - new Date(b.deliveryTimestamp || b.date)); else if (sort === 'total_desc') filtered.sort((a, b) => b.total - a.total); else if (sort === 'total_asc') filtered.sort((a, b) => a.total - b.total); if (!filtered.length) { container.innerHTML = '<p style="text-align:center;padding:40px">📭 Sin ventas</p>'; return; } container.innerHTML = filtered.map(o => renderOrderCard(o, true)).join(''); }
 function filterHistoryByStatus(status, el) { historyStatusFilter = status; document.querySelectorAll('.history-status-filter').forEach(btn => btn.classList.remove('active')); if (el) el.classList.add('active'); renderHistoryList(); }
-
-function renderDeliveredList() { const container = document.getElementById('deliveredListContainer'); if (!container) return; let list = [...DB.deliveredOrders]; const search = document.getElementById('deliveredSearch')?.value; if (search) { const q = search.toLowerCase(); list = list.filter(d => d.orderId.toLowerCase().includes(q) || d.clientName.toLowerCase().includes(q) || d.items.some(i => i.name.toLowerCase().includes(q))); } if (!list.length) { container.innerHTML = '<p style="text-align:center;padding:40px">📭 Sin registros</p>'; return; } container.innerHTML = list.map((del, idx) => `<div class="delivered-card"><div class="delivered-header"><div><div class="delivered-id">Pedido: ${del.orderId}</div><div style="font-size:0.75rem">${del.orderDate}</div></div><div class="delivered-date">📅 ${del.deliveryDate}</div></div><div><strong>${escapeHtml(del.clientName)}</strong>${del.clientPhone ? `<span style="margin-left:10px">📱 ${escapeHtml(del.clientPhone)}</span>` : ''}</div><div class="delivered-items">${del.items.map(i => `<div class="delivered-item">${escapeHtml(i.name)} x${i.qty} - $${formatNum(i.price * i.qty)}</div>`).join('')}</div><div><strong>Total: $${formatNum(del.total)}</strong></div><div class="delivered-actions"><button class="tbl-btn tbl-edit" onclick="editDeliveredRecord(${idx})">✏️</button><button class="tbl-btn btn-wa" onclick="resendDeliveryWhatsApp(${idx})">📱 WA</button><button class="tbl-btn tbl-del" onclick="deleteDeliveredRecord(${idx})">🗑️</button><button class="tbl-btn" style="background:var(--badge-esp);color:#fff" onclick="openReturnModal('${del.orderId}',${idx})">🔄 Devolución</button></div>${del.notes ? `<div style="margin-top:8px;padding:8px;background:var(--bg3);border-radius:var(--radius-sm);font-size:0.75rem">📝 ${escapeHtml(del.notes)}</div>` : ''}</div>`).join(''); }
+function renderDeliveredList() { const container = document.getElementById('deliveredListContainer'); if (!container) return; let list = [...DB.deliveredOrders]; const search = document.getElementById('deliveredSearch')?.value; if (search) { const q = search.toLowerCase(); list = list.filter(d => d.orderId.toLowerCase().includes(q) || d.clientName.toLowerCase().includes(q) || d.items.some(i => i.name.toLowerCase().includes(q))); } if (!list.length) { container.innerHTML = '<p style="text-align:center;padding:40px">📭 Sin registros</p>'; return; } container.innerHTML = list.map((del, idx) => `<div class="delivered-card"><div class="delivered-header"><div><div class="delivered-id">Pedido: ${del.orderId}</div><div style="font-size:0.75rem">${del.orderDate}</div></div><div class="delivered-date">📅 ${del.deliveryDate}</div></div><div><strong>${escapeHtml(del.clientName)}</strong>${del.clientPhone ? `<span style="margin-left:10px">📱 ${escapeHtml(del.clientPhone)}</span>` : ''}</div><div class="delivered-items">${del.items.map(i => `<div class="delivered-item">${escapeHtml(i.name)} x${i.qty} - $${formatNum(i.price * i.qty)}</div>`).join('')}</div><div><strong>Total: $${formatNum(del.total)}</strong></div>${currentUser?.role === 'admin' ? `<div class="delivered-actions"><button class="tbl-btn tbl-edit" onclick="editDeliveredRecord(${idx})">✏️</button><button class="tbl-btn btn-wa" onclick="resendDeliveryWhatsApp(${idx})">📱 WA</button><button class="tbl-btn tbl-del" onclick="deleteDeliveredRecord(${idx})">🗑️</button><button class="tbl-btn" style="background:var(--badge-esp);color:#fff" onclick="openReturnModal('${del.orderId}',${idx})">🔄 Devolución</button></div>` : ''}${del.notes ? `<div style="margin-top:8px;padding:8px;background:var(--bg3);border-radius:var(--radius-sm);font-size:0.75rem">📝 ${escapeHtml(del.notes)}</div>` : ''}</div>`).join(''); }
 function filterDeliveredList(query) { deliveredFilterQuery = query; renderDeliveredList(); }
-function editDeliveredRecord(idx) { const del = DB.deliveredOrders[idx]; if (!del) return; document.getElementById('editDeliveryIndex').value = idx; const date = new Date(del.deliveryTimestamp).toISOString().slice(0,16); document.getElementById('editDeliveryDate').value = date; document.getElementById('editDeliveryNotes').value = del.notes || ''; openModal('editDeliveryModal'); }
+function editDeliveredRecord(idx) { if (currentUser?.role !== 'admin') { notify('⛔ Solo el administrador puede editar', 'error'); return; } const del = DB.deliveredOrders[idx]; if (!del) return; document.getElementById('editDeliveryIndex').value = idx; const date = new Date(del.deliveryTimestamp).toISOString().slice(0,16); document.getElementById('editDeliveryDate').value = date; document.getElementById('editDeliveryNotes').value = del.notes || ''; openModal('editDeliveryModal'); }
 function saveDeliveryEdit() { const idx = parseInt(document.getElementById('editDeliveryIndex').value); const del = DB.deliveredOrders[idx]; if (!del) return; const newDate = document.getElementById('editDeliveryDate').value; const notes = document.getElementById('editDeliveryNotes').value; if (newDate) { const d = new Date(newDate); del.deliveryDate = d.toLocaleString(); del.deliveryTimestamp = d.toISOString(); } del.notes = notes; saveFullData(); renderDeliveredList(); closeModal('editDeliveryModal'); notify('✅ Registro actualizado'); }
-function deleteDeliveredRecord(idx) { if (confirm('¿Eliminar permanentemente?')) { DB.deliveredOrders.splice(idx,1); saveFullData(); renderDeliveredList(); notify('🗑️ Eliminado'); } }
-function openReturnModal(orderId, idx) { document.getElementById('returnOrderId').value = orderId; document.getElementById('returnReason').value = ''; document.getElementById('returnRestock').value = 'yes'; window._returnIndex = idx; openModal('returnModal'); }
+function deleteDeliveredRecord(idx) { if (currentUser?.role !== 'admin') { notify('⛔ Solo el administrador puede eliminar', 'error'); return; } if (confirm('¿Eliminar permanentemente?')) { DB.deliveredOrders.splice(idx,1); saveFullData(); renderDeliveredList(); notify('🗑️ Eliminado'); } }
+function openReturnModal(orderId, idx) { if (currentUser?.role !== 'admin') { notify('⛔ Solo el administrador puede procesar devoluciones', 'error'); return; } document.getElementById('returnOrderId').value = orderId; document.getElementById('returnReason').value = ''; document.getElementById('returnRestock').value = 'yes'; window._returnIndex = idx; openModal('returnModal'); }
 function processReturn() { const orderId = document.getElementById('returnOrderId').value; const reason = document.getElementById('returnReason').value; const restock = document.getElementById('returnRestock').value; const idx = window._returnIndex; const record = DB.deliveredOrders[idx]; if (!record || record.orderId !== orderId) { notify('❌ Error','error'); closeModal('returnModal'); return; } if (restock === 'yes') { record.items.forEach(item => { const p = DB.products.find(p => p.id === item.id); if (p) p.stock += item.qty; }); renderProducts(); notify(`✅ Stock devuelto (${record.items.reduce((s,i)=>s+i.qty,0)} unidades)`); } record.status = 'Devuelto'; record.returnReason = reason; record.returnDate = new Date().toLocaleString(); if (record.clientPhone) { const msg = `🔄 *DEVOLUCIÓN* 🔄\n\nPedido: ${orderId}\nCliente: ${escapeHtml(record.clientName)}\nMotivo: ${reason || 'No especificado'}\nStock devuelto: ${restock === 'yes' ? 'Sí' : 'No'}`; window.open(`https://wa.me/${record.clientPhone.replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`,'_blank'); } saveFullData(); renderDeliveredList(); renderStats(); closeModal('returnModal'); notify(`🔄 Devolución procesada para ${orderId}`); }
 function resendDeliveryWhatsApp(idx) { const del = DB.deliveredOrders[idx]; if (!del || !del.clientPhone) { notify('⚠️ Sin teléfono','error'); return; } const storeName = DB.config.storeName; const itemsList = del.items.map(i => `• ${i.name} x${i.qty} - $${formatNum(i.price * i.qty)}`).join('\n'); const msg = `🟢 *PRODUCTO RETIRADO* ✅\n\n📦 Pedido: ${del.orderId}\n👤 Cliente: ${escapeHtml(del.clientName)}\n\nProductos:\n${itemsList}\n💰 Total: $${formatNum(del.total)}\n📅 Retiro: ${del.deliveryDate}\n\n⚠️ *POLÍTICA DE DEVOLUCIÓN:* 24 horas.\n\n¡Gracias por confiar en ${storeName}!`; window.open(`https://wa.me/${del.clientPhone.replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`,'_blank'); notify('📱 Mensaje reenviado'); }
 function exportDeliveredList() { const data = JSON.stringify(DB.deliveredOrders,null,2); const blob = new Blob([data],{type:'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `retirados_${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.json`; a.click(); URL.revokeObjectURL(a.href); notify('✅ Exportado'); }
-
-function renderClientsTable(query = '') { const tbody = document.getElementById('clientsTableBody'); if (!tbody) return; let clients = [...DB.users]; if (query) { const q = query.toLowerCase(); clients = clients.filter(c => c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q) || (c.phone || '').includes(q)); } if (!clients.length) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center">Sin clientes</span></td>'; return; } tbody.innerHTML = clients.map(c => `<tr><td><strong>${escapeHtml(c.name)}</strong></td><td>${escapeHtml(c.email)}</span><td>${c.phone || '—'}</span><td>${c.address || '—'}</span><td><span class="badge" style="background:${c.role === 'admin' ? '#8B5CF6' : '#10B981'}">${c.role === 'admin' ? 'Admin' : 'Cliente'}</span></span><td><div class="tbl-actions"><button class="tbl-btn tbl-edit" onclick="openEditClientModal('${c.email}')">✏️</button><button class="tbl-btn tbl-del" onclick="deleteClientByAdmin('${c.email}')">🗑️</button><button class="tbl-btn btn-wa" onclick="sendWhatsAppToClient('${c.phone}', '${escapeHtml(c.name)}')">📱</button></div></span></tr>`).join(''); }
-function openEditClientModal(email) { const client = DB.users.find(u => u.email === email); if (!client) return; const modalHTML = `<div class="modal-overlay" id="clientEditModal"><div class="modal-box"><div class="modal-header"><h2>✏️ Editar Cliente</h2><button class="modal-close" onclick="closeModal('clientEditModal')">✕</button></div><div class="modal-body"><input type="hidden" id="clientEditEmail" value="${escapeHtml(client.email)}"><div class="form-group"><label>Nombre</label><input type="text" id="clientEditName" value="${escapeHtml(client.name)}"></div><div class="form-group"><label>Teléfono</label><input type="tel" id="clientEditPhone" value="${escapeHtml(client.phone||'')}"></div><div class="form-group"><label>Dirección</label><input type="text" id="clientEditAddress" value="${escapeHtml(client.address||'')}"></div><div class="form-group"><label>Contraseña</label><input type="password" id="clientEditPassword" placeholder="Dejar vacío para no cambiar"></div><div class="form-group"><label>Rol</label><select id="clientEditRole"><option value="user" ${client.role !== 'admin' ? 'selected' : ''}>Cliente</option><option value="admin" ${client.role === 'admin' ? 'selected' : ''}>Admin</option></select></div><button class="btn-primary" onclick="saveClientFromAdmin()">Guardar</button><button class="btn-secondary" onclick="closeModal('clientEditModal')">Cancelar</button></div></div></div>`; document.body.insertAdjacentHTML('beforeend', modalHTML); document.getElementById('clientEditModal').classList.add('open'); }
+function renderClientsTable(query = '') { const tbody = document.getElementById('clientsTableBody'); if (!tbody) return; let clients = [...DB.users]; if (query) { const q = query.toLowerCase(); clients = clients.filter(c => c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q) || (c.phone || '').includes(q)); } if (!clients.length) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center">Sin clientes</span></tr>'; return; } tbody.innerHTML = clients.map(c => `<tr><td><strong>${escapeHtml(c.name)}</strong></td><td>${escapeHtml(c.email)}</span><td>${c.phone || '—'}</span><td>${c.address || '—'}</span><td><span class="badge" style="background:${c.role === 'admin' ? '#8B5CF6' : '#10B981'}">${c.role === 'admin' ? 'Admin' : 'Cliente'}</span></td><td><div class="tbl-actions">${currentUser?.role === 'admin' ? `<button class="tbl-btn tbl-edit" onclick="openEditClientModal('${c.email}')">✏️</button><button class="tbl-btn tbl-del" onclick="deleteClientByAdmin('${c.email}')">🗑️</button>` : ''}<button class="tbl-btn btn-wa" onclick="sendWhatsAppToClient('${c.phone}', '${escapeHtml(c.name)}')">📱</button></div></span></tr>`).join(''); }
+function openEditClientModal(email) { if (currentUser?.role !== 'admin') { notify('⛔ Solo el administrador puede editar clientes', 'error'); return; } const client = DB.users.find(u => u.email === email); if (!client) return; const modalHTML = `<div class="modal-overlay" id="clientEditModal"><div class="modal-box"><div class="modal-header"><h2>✏️ Editar Cliente</h2><button class="modal-close" onclick="closeModal('clientEditModal')">✕</button></div><div class="modal-body"><input type="hidden" id="clientEditEmail" value="${escapeHtml(client.email)}"><div class="form-group"><label>Nombre</label><input type="text" id="clientEditName" value="${escapeHtml(client.name)}"></div><div class="form-group"><label>Teléfono</label><input type="tel" id="clientEditPhone" value="${escapeHtml(client.phone||'')}"></div><div class="form-group"><label>Dirección</label><input type="text" id="clientEditAddress" value="${escapeHtml(client.address||'')}"></div><div class="form-group"><label>Contraseña</label><input type="password" id="clientEditPassword" placeholder="Dejar vacío para no cambiar"></div><div class="form-group"><label>Rol</label><select id="clientEditRole"><option value="user" ${client.role !== 'admin' ? 'selected' : ''}>Cliente</option><option value="admin" ${client.role === 'admin' ? 'selected' : ''}>Admin</option></select></div><button class="btn-primary" onclick="saveClientFromAdmin()">Guardar</button><button class="btn-secondary" onclick="closeModal('clientEditModal')">Cancelar</button></div></div></div>`; document.body.insertAdjacentHTML('beforeend', modalHTML); document.getElementById('clientEditModal').classList.add('open'); }
 function saveClientFromAdmin() { const email = document.getElementById('clientEditEmail').value; const name = document.getElementById('clientEditName').value.trim(); const phone = document.getElementById('clientEditPhone').value.trim(); const address = document.getElementById('clientEditAddress').value.trim(); const pass = document.getElementById('clientEditPassword').value; const role = document.getElementById('clientEditRole').value; if (!name) { notify('⚠️ Nombre requerido','error'); return; } const idx = DB.users.findIndex(u => u.email === email); if (idx !== -1) { DB.users[idx].name = name; DB.users[idx].phone = phone; DB.users[idx].address = address; DB.users[idx].role = role; DB.users[idx].updatedAt = Date.now(); if (pass.length >= 6) DB.users[idx].password = pass; if (currentUser && currentUser.email === email) { currentUser = DB.users[idx]; updateAuthUI(); } saveFullData(); renderClientsTable(); closeModal('clientEditModal'); notify('✅ Cliente actualizado'); } }
-function deleteClientByAdmin(email) { if (email === 'admin') { notify('⚠️ No se puede eliminar admin principal','error'); return; } if (confirm('¿Eliminar cliente?')) { DB.users = DB.users.filter(u => u.email !== email); if (currentUser && currentUser.email === email) currentUser = null; saveFullData(); renderClientsTable(); updateAuthUI(); notify('🗑️ Cliente eliminado'); } }
+function deleteClientByAdmin(email) { if (currentUser?.role !== 'admin') { notify('⛔ Solo el administrador puede eliminar clientes', 'error'); return; } if (email === 'dmadmin23') { notify('⚠️ No se puede eliminar admin principal','error'); return; } if (confirm('¿Eliminar cliente?')) { DB.users = DB.users.filter(u => u.email !== email); if (currentUser && currentUser.email === email) currentUser = null; saveFullData(); renderClientsTable(); updateAuthUI(); notify('🗑️ Cliente eliminado'); } }
 function sendWhatsAppToClient(phone, name) { if (!phone) { notify('⚠️ Sin teléfono','error'); return; } const msg = encodeURIComponent(`Hola ${name}, somos de ${DB.config.storeName || 'TechParts'}. ¿Cómo podemos ayudarte?`); window.open(`https://wa.me/${phone.replace(/\D/g,'')}?text=${msg}`,'_blank'); }
-
-function renderInventoryTable(query = '') { const tbody = document.getElementById('invTbody'); if (!tbody) return; let prods = [...DB.products]; if (query) { const q = query.toLowerCase(); prods = prods.filter(p => p.name.toLowerCase().includes(q) || (p.partNumber || '').toLowerCase().includes(q)); } if (!prods.length) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center">Sin productos</span></tr>'; return; } tbody.innerHTML = prods.map(p => `<tr><td><img class="tbl-img" src="${p.images?.[0] || 'https://via.placeholder.com/44'}" onerror="this.src='https://via.placeholder.com/44'"></span><td><strong>${escapeHtml(p.name)}</strong></td><td>${p.partNumber || '—'}</span><td>${[p.brand, p.model, p.partSpecific].filter(Boolean).join(' › ')}</span><td>$${formatNum(p.finalPrice)}</span><td><span style="color:${p.stock === 0 ? 'red' : p.stock < 5 ? 'orange' : 'green'}">${p.stock}</span><div class="stock-bar"><div class="stock-fill" style="width:${Math.min(100, p.stock * 5)}%;background:${p.stock === 0 ? 'red' : p.stock < 5 ? 'orange' : 'green'}"></div></div></span><td>${p.badge ? `<span class="badge badge-${p.badge.toLowerCase()}">${p.badge}</span>` : '—'}</span><td><div class="tbl-actions"><button class="tbl-btn tbl-edit" onclick="openAddProduct('${p.id}')">✏️</button><button class="tbl-btn tbl-del" onclick="deleteProduct('${p.id}')">🗑️</button></div></span></tr>`).join(''); }
-function openAddProduct(id) { clearProductForm(); photoUrls = []; if (id) { const p = DB.products.find(x => x.id === id); if (!p) return; editingProductId = id; document.getElementById('formTitle').textContent = '✏️ Editar Producto'; document.getElementById('editingId').value = id; document.getElementById('pName').value = p.name || ''; document.getElementById('pPart').value = p.partNumber || ''; document.getElementById('pDescription').value = p.description || ''; document.getElementById('pCost').value = p.cost || ''; document.getElementById('pMargin').value = p.margin || ''; document.getElementById('pFinal').value = p.finalPrice; document.getElementById('pStock').value = p.stock; photoUrls = [...(p.images || [])]; selectedBadge = p.badge || ''; document.querySelectorAll('.badge-opt').forEach(b => b.classList.toggle('active', b.dataset.val === selectedBadge)); updateCatSelectors(); setTimeout(() => { if (document.getElementById('catBrand') && p.brand) document.getElementById('catBrand').value = p.brand; updateCatModel(); setTimeout(() => { if (document.getElementById('catModel') && p.model) document.getElementById('catModel').value = p.model; if (document.getElementById('catType') && p.componentType) document.getElementById('catType').value = p.componentType; updateCatParts(); if (document.getElementById('catPart') && p.partSpecific) document.getElementById('catPart').value = p.partSpecific; }, 50); }, 50); } else { editingProductId = null; document.getElementById('formTitle').textContent = '➕ Nuevo Producto'; document.getElementById('editingId').value = ''; updateCatSelectors(); } renderPhotoList(); calcFinalPrice(); }
+function renderInventoryTable(query = '') { const tbody = document.getElementById('invTbody'); if (!tbody) return; let prods = [...DB.products]; if (query) { const q = query.toLowerCase(); prods = prods.filter(p => p.name.toLowerCase().includes(q) || (p.partNumber || '').toLowerCase().includes(q)); } if (!prods.length) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center">Sin productos</span><tr>'; return; } tbody.innerHTML = prods.map(p => `<tr><td><img class="tbl-img" src="${p.images?.[0] || 'https://via.placeholder.com/44'}" onerror="this.src='https://via.placeholder.com/44'"></span><td><strong>${escapeHtml(p.name)}</strong></td><td>${p.partNumber || '—'}</span><td>${[p.brand, p.model, p.partSpecific].filter(Boolean).join(' › ')}</span><td>$${formatNum(p.finalPrice)}</span><td><span style="color:${p.stock === 0 ? 'red' : p.stock < 5 ? 'orange' : 'green'}">${p.stock}</span><div class="stock-bar"><div class="stock-fill" style="width:${Math.min(100, p.stock * 5)}%;background:${p.stock === 0 ? 'red' : p.stock < 5 ? 'orange' : 'green'}"></div></div></span><td>${p.badge ? `<span class="badge badge-${p.badge.toLowerCase()}">${p.badge}</span>` : '—'}</span><td><div class="tbl-actions">${currentUser?.role === 'admin' ? `<button class="tbl-btn tbl-edit" onclick="openAddProduct('${p.id}')">✏️</button><button class="tbl-btn tbl-del" onclick="deleteProduct('${p.id}')">🗑️</button>` : '<span style="color:var(--text3);font-size:0.7rem">Solo admin</span>'}</div></span></tr>`).join(''); }
+function openAddProduct(id) { if (currentUser?.role !== 'admin') { notify('⛔ Solo el administrador puede editar productos', 'error'); return; } clearProductForm(); photoUrls = []; if (id) { const p = DB.products.find(x => x.id === id); if (!p) return; editingProductId = id; document.getElementById('formTitle').textContent = '✏️ Editar Producto'; document.getElementById('editingId').value = id; document.getElementById('pName').value = p.name || ''; document.getElementById('pPart').value = p.partNumber || ''; document.getElementById('pDescription').value = p.description || ''; document.getElementById('pCost').value = p.cost || ''; document.getElementById('pMargin').value = p.margin || ''; document.getElementById('pFinal').value = p.finalPrice; document.getElementById('pStock').value = p.stock; photoUrls = [...(p.images || [])]; selectedBadge = p.badge || ''; document.querySelectorAll('.badge-opt').forEach(b => b.classList.toggle('active', b.dataset.val === selectedBadge)); updateCatSelectors(); setTimeout(() => { if (document.getElementById('catBrand') && p.brand) document.getElementById('catBrand').value = p.brand; updateCatModel(); setTimeout(() => { if (document.getElementById('catModel') && p.model) document.getElementById('catModel').value = p.model; if (document.getElementById('catType') && p.componentType) document.getElementById('catType').value = p.componentType; updateCatParts(); if (document.getElementById('catPart') && p.partSpecific) document.getElementById('catPart').value = p.partSpecific; }, 50); }, 50); } else { editingProductId = null; document.getElementById('formTitle').textContent = '➕ Nuevo Producto'; document.getElementById('editingId').value = ''; updateCatSelectors(); } renderPhotoList(); calcFinalPrice(); }
 function clearProductForm() { editingProductId = null; document.getElementById('editingId').value = ''; document.getElementById('formTitle').textContent = '➕ Nuevo Producto'; document.getElementById('pName').value = ''; document.getElementById('pPart').value = ''; document.getElementById('pDescription').value = ''; document.getElementById('pCost').value = ''; document.getElementById('pMargin').value = ''; document.getElementById('pFinal').value = ''; document.getElementById('pStock').value = ''; photoUrls = []; selectedBadge = ''; document.querySelectorAll('.badge-opt').forEach(b => b.classList.remove('active')); renderPhotoList(); document.getElementById('priceCalcBox').style.display = 'none'; updateCatSelectors(); }
-function saveProduct() { const name = document.getElementById('pName').value.trim(); if (!name) { notify('⚠️ Nombre obligatorio','error'); return; } const finalPrice = parseFloat(document.getElementById('pFinal').value); if (!finalPrice || finalPrice <= 0) { notify('⚠️ Precio válido','error'); return; } const stock = parseInt(document.getElementById('pStock').value) || 0; const brand = document.getElementById('catBrand').value, model = document.getElementById('catModel').value, componentType = document.getElementById('catType').value, partSpecific = document.getElementById('catPart').value; const description = document.getElementById('pDescription').value.trim(); if (brand && !DB.categories.brands.includes(brand)) DB.categories.brands.push(brand); if (brand && model) { if (!DB.categories.models[brand]) DB.categories.models[brand] = []; if (!DB.categories.models[brand].includes(model)) DB.categories.models[brand].push(model); } if (partSpecific && !DB.categories.parts.includes(partSpecific)) DB.categories.parts.push(partSpecific); const product = { id: editingProductId || ('P' + Date.now()), name: name, description: description, partNumber: document.getElementById('pPart').value.trim(), brand: brand, model: model, componentType: componentType, partSpecific: partSpecific, images: photoUrls.filter(Boolean), cost: parseFloat(document.getElementById('pCost').value) || 0, margin: parseFloat(document.getElementById('pMargin').value) || 0, finalPrice: finalPrice, stock: stock, badge: selectedBadge }; if (editingProductId) { const idx = DB.products.findIndex(p => p.id === editingProductId); if (idx !== -1) DB.products[idx] = product; } else { DB.products.unshift(product); } saveFullData(); renderInventoryTable(); renderProducts(); renderStats(); clearProductForm(); notify(editingProductId ? '✅ Producto actualizado' : '✅ Producto creado'); }
-function deleteProduct(id) { if (confirm('¿Eliminar producto?')) { DB.products = DB.products.filter(p => p.id !== id); saveFullData(); renderInventoryTable(); renderProducts(); renderStats(); notify('🗑️ Eliminado'); } }
+function saveProduct() { if (currentUser?.role !== 'admin') { notify('⛔ Solo el administrador puede guardar productos', 'error'); return; } const name = document.getElementById('pName').value.trim(); if (!name) { notify('⚠️ Nombre obligatorio','error'); return; } const finalPrice = parseFloat(document.getElementById('pFinal').value); if (!finalPrice || finalPrice <= 0) { notify('⚠️ Precio válido','error'); return; } const stock = parseInt(document.getElementById('pStock').value) || 0; const brand = document.getElementById('catBrand').value, model = document.getElementById('catModel').value, componentType = document.getElementById('catType').value, partSpecific = document.getElementById('catPart').value; const description = document.getElementById('pDescription').value.trim(); if (brand && !DB.categories.brands.includes(brand)) DB.categories.brands.push(brand); if (brand && model) { if (!DB.categories.models[brand]) DB.categories.models[brand] = []; if (!DB.categories.models[brand].includes(model)) DB.categories.models[brand].push(model); } if (partSpecific && !DB.categories.parts.includes(partSpecific)) DB.categories.parts.push(partSpecific); const product = { id: editingProductId || ('P' + Date.now()), name: name, description: description, partNumber: document.getElementById('pPart').value.trim(), brand: brand, model: model, componentType: componentType, partSpecific: partSpecific, images: photoUrls.filter(Boolean), cost: parseFloat(document.getElementById('pCost').value) || 0, margin: parseFloat(document.getElementById('pMargin').value) || 0, finalPrice: finalPrice, stock: stock, badge: selectedBadge }; if (editingProductId) { const idx = DB.products.findIndex(p => p.id === editingProductId); if (idx !== -1) DB.products[idx] = product; } else { DB.products.unshift(product); } saveFullData(); renderInventoryTable(); renderProducts(); renderStats(); clearProductForm(); notify(editingProductId ? '✅ Producto actualizado' : '✅ Producto creado'); }
+function deleteProduct(id) { if (currentUser?.role !== 'admin') { notify('⛔ Solo el administrador puede eliminar productos', 'error'); return; } if (confirm('¿Eliminar producto?')) { DB.products = DB.products.filter(p => p.id !== id); saveFullData(); renderInventoryTable(); renderProducts(); renderStats(); notify('🗑️ Eliminado'); } }
 function updateCatSelectors() { const brandSel = document.getElementById('catBrand'); if (!brandSel) return; const current = brandSel.value; brandSel.innerHTML = '<option value="">— Marca —</option>' + DB.categories.brands.map(b => `<option value="${escapeHtml(b)}">${escapeHtml(b)}</option>`).join(''); if (current) brandSel.value = current; updateCatModel(); }
 function updateCatModel() { const brand = document.getElementById('catBrand')?.value || ''; const modelSel = document.getElementById('catModel'); if (!modelSel) return; const models = (brand && DB.categories.models[brand]) ? DB.categories.models[brand] : []; modelSel.innerHTML = '<option value="">— Modelo —</option>' + models.map(m => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join(''); updateCatParts(); }
 function updateCatParts() { const partSel = document.getElementById('catPart'); if (!partSel) return; partSel.innerHTML = '<option value="">— Parte —</option>' + DB.categories.parts.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join(''); }
-function addNewCatValue(type) { const labels = { brand: 'marca', model: 'modelo', part: 'parte' }; const val = prompt(`Ingresá nueva ${labels[type]}:`); if (!val || !val.trim()) return; const v = val.trim(); if (type === 'brand') { if (!DB.categories.brands.includes(v)) DB.categories.brands.push(v); updateCatSelectors(); document.getElementById('catBrand').value = v; } else if (type === 'model') { const brand = document.getElementById('catBrand').value; if (!brand) { notify('⚠️ Seleccioná marca primero','error'); return; } if (!DB.categories.models[brand]) DB.categories.models[brand] = []; if (!DB.categories.models[brand].includes(v)) DB.categories.models[brand].push(v); updateCatModel(); document.getElementById('catModel').value = v; } else if (type === 'part') { if (!DB.categories.parts.includes(v)) DB.categories.parts.push(v); updateCatParts(); document.getElementById('catPart').value = v; } saveFullData(); notify(`✅ "${v}" agregado`); }
+function addNewCatValue(type) { if (currentUser?.role !== 'admin') { notify('⛔ Solo el administrador puede agregar categorías', 'error'); return; } const labels = { brand: 'marca', model: 'modelo', part: 'parte' }; const val = prompt(`Ingresá nueva ${labels[type]}:`); if (!val || !val.trim()) return; const v = val.trim(); if (type === 'brand') { if (!DB.categories.brands.includes(v)) DB.categories.brands.push(v); updateCatSelectors(); document.getElementById('catBrand').value = v; } else if (type === 'model') { const brand = document.getElementById('catBrand').value; if (!brand) { notify('⚠️ Seleccioná marca primero','error'); return; } if (!DB.categories.models[brand]) DB.categories.models[brand] = []; if (!DB.categories.models[brand].includes(v)) DB.categories.models[brand].push(v); updateCatModel(); document.getElementById('catModel').value = v; } else if (type === 'part') { if (!DB.categories.parts.includes(v)) DB.categories.parts.push(v); updateCatParts(); document.getElementById('catPart').value = v; } saveFullData(); notify(`✅ "${v}" agregado`); }
 function calcFinalPrice() { const cost = parseFloat(document.getElementById('pCost').value) || 0; const margin = parseFloat(document.getElementById('pMargin').value) || 0; const box = document.getElementById('priceCalcBox'); if (cost > 0 && box) { const final = cost * (1 + margin / 100); document.getElementById('pFinalDisplay').textContent = '$' + formatNum(final); document.getElementById('pFinal').value = final.toFixed(2); box.style.display = 'block'; } else if (box) { box.style.display = 'none'; } }
 function toggleBadge(el) { const val = el.dataset.val; if (selectedBadge === val) { selectedBadge = ''; el.classList.remove('active'); } else { selectedBadge = val; document.querySelectorAll('.badge-opt').forEach(b => b.classList.remove('active')); el.classList.add('active'); } }
 function renderStats() { const grid = document.getElementById('statsGrid'); if (!grid) return; const total = DB.products.length, inStock = DB.products.filter(p => p.stock > 0).length, totalOrders = DB.orders.length, delivered = DB.deliveredOrders.length, pendingSales = DB.orders.filter(o => (o.status === 'Pendiente' || o.status === 'Confirmado') && !DB.reviewedSales.includes(o.id)).length, revenue = DB.deliveredOrders.reduce((s, d) => s + d.total, 0), users = DB.users.length; grid.innerHTML = `<div class="stat-card"><div class="stat-val">${total}</div><div class="stat-label">Productos</div></div><div class="stat-card"><div class="stat-val">${inStock}</div><div class="stat-label">Con stock</div></div><div class="stat-card"><div class="stat-val">${totalOrders}</div><div class="stat-label">Pedidos</div></div><div class="stat-card"><div class="stat-val">${delivered}</div><div class="stat-label">Retirados</div></div><div class="stat-card"><div class="stat-val">${pendingSales}</div><div class="stat-label">Nuevas Ventas</div></div><div class="stat-card"><div class="stat-val">$${formatNum(revenue)}</div><div class="stat-label">Ingresos</div></div><div class="stat-card"><div class="stat-val">${users}</div><div class="stat-label">Clientes</div></div>`; }
@@ -1848,125 +1602,16 @@ function importDB(e){ const file=e.target.files[0]; if(!file)return; const reade
 function openShare(id){ const p=DB.products.find(x=>x.id===id); if(!p)return; document.getElementById('shareGrid').innerHTML=`<div class="share-item" onclick="shareProduct('${id}','whatsapp')"><div class="share-icon" style="background:#25D366">💬</div><span>WhatsApp</span></div><div class="share-item" onclick="shareProduct('${id}','facebook')"><div class="share-icon" style="background:#1877F2">👍</div><span>Facebook</span></div><div class="share-item" onclick="shareProduct('${id}','x')"><div class="share-icon" style="background:#000">𝕏</div><span>X</span></div>`; document.getElementById('sharePanel').classList.add('open'); }
 function closeSharePanel(){ document.getElementById('sharePanel').classList.remove('open'); }
 function shareProduct(id,platform){ const p=DB.products.find(x=>x.id===id); if(!p)return; const storeName=DB.config.storeName||'TechParts Store'; const msg=`🔧 ${p.name}\n💰 $${formatNum(p.finalPrice)}\n📍 ${storeName}`; const text=encodeURIComponent(msg); if(platform==='whatsapp') window.open(`https://wa.me/?text=${text}`,'_blank'); else if(platform==='facebook') window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}&quote=${text}`,'_blank'); else if(platform==='x') window.open(`https://twitter.com/intent/tweet?text=${text}`,'_blank'); closeSharePanel(); }
-function showAdmin(){ if(!currentUser||currentUser.role!=='admin'){ notify('⛔ Acceso denegado','error'); return; } document.getElementById('storeView').style.display='none'; document.getElementById('adminView').style.display='block'; renderInventoryTable(); renderStats(); renderAllOrders(); renderDeliveredList(); renderClientsTable(); renderHistoryList(); renderNewSaleNotification(); }
+function showAdmin(){ if(!currentUser||currentUser.role!=='admin'){ notify('⛔ Acceso denegado. Solo administradores.', 'error'); return; } document.getElementById('storeView').style.display='none'; document.getElementById('adminView').style.display='block'; renderInventoryTable(); renderStats(); renderAllOrders(); renderDeliveredList(); renderClientsTable(); renderHistoryList(); renderNewSaleNotification(); }
 function showStore(){ document.getElementById('storeView').style.display='block'; document.getElementById('adminView').style.display='none'; renderProducts(); renderBanners(); startBannerCarousel(); }
 function switchAdminTab(tab,el){ document.querySelectorAll('.admin-tab').forEach(t=>t.classList.remove('active')); if(el)el.classList.add('active'); document.querySelectorAll('.admin-section').forEach(s=>s.classList.remove('active')); document.getElementById('tab-'+tab).classList.add('active'); if(tab==='inventory') renderInventoryTable(); if(tab==='delivered') renderDeliveredList(); if(tab==='clients') renderClientsTable(); if(tab==='history') renderHistoryList(); if(tab==='identity'){ loadIdentityForm(); renderLogoSelector(); } if(tab==='branding'){ renderSeasonalGrid(); if(!bgSelectorInitialized){ createBgSelectorModal(); bgSelectorInitialized=true; } addBgSelectorButton(); } if(tab==='dashboard'){ renderNewSaleNotification(); renderStats(); } }
 function openUserMenu(){ if(!currentUser)return; document.getElementById('userProfileInfo').innerHTML=`<strong>${escapeHtml(currentUser.name)}</strong><br>✉️ ${escapeHtml(currentUser.email)}<br>${currentUser.phone?`📱 ${escapeHtml(currentUser.phone)}<br>`:''}${currentUser.address?`📍 ${escapeHtml(currentUser.address)}`:''}<button class="btn-secondary" style="margin-top:12px" onclick="openEditProfileModal()">✏️ Editar perfil</button>`; const myOrders=DB.orders.filter(o=>o.userId===currentUser.email); document.getElementById('myOrdersList').innerHTML=myOrders.length?myOrders.map(o=>renderOrderCard(o,false)).join(''):'<p>Sin pedidos</p>'; openModal('userMenuModal'); }
 function openEditProfileModal(){ if(!currentUser)return; const html=`<div class="modal-overlay" id="editProfileModal"><div class="modal-box"><div class="modal-header"><h2>✏️ Editar Perfil</h2><button class="modal-close" onclick="closeModal('editProfileModal')">✕</button></div><div class="modal-body"><div class="form-group"><label>Nombre</label><input type="text" id="editProfileName" value="${escapeHtml(currentUser.name)}"></div><div class="form-group"><label>Teléfono</label><input type="tel" id="editProfilePhone" value="${escapeHtml(currentUser.phone||'')}"></div><div class="form-group"><label>Dirección</label><input type="text" id="editProfileAddress" value="${escapeHtml(currentUser.address||'')}"></div><div class="form-group"><label>Nueva contraseña</label><input type="password" id="editProfilePassword" placeholder="Dejar vacío para no cambiar"></div><button class="btn-primary" onclick="saveProfileChanges()">Guardar</button><button class="btn-secondary" onclick="closeModal('editProfileModal')">Cancelar</button></div></div></div>`; document.body.insertAdjacentHTML('beforeend',html); document.getElementById('editProfileModal').classList.add('open'); }
 function saveProfileChanges(){ if(!currentUser)return; const newName=document.getElementById('editProfileName').value.trim(); const newPhone=document.getElementById('editProfilePhone').value.trim(); const newAddress=document.getElementById('editProfileAddress').value.trim(); const newPass=document.getElementById('editProfilePassword').value; if(!newName){ notify('⚠️ Nombre requerido','error'); return; } const idx=DB.users.findIndex(u=>u.email===currentUser.email); if(idx!==-1){ DB.users[idx].name=newName; DB.users[idx].phone=newPhone; DB.users[idx].address=newAddress; DB.users[idx].updatedAt=Date.now(); if(newPass.length>=6) DB.users[idx].password=newPass; } currentUser.name=newName; currentUser.phone=newPhone; currentUser.address=newAddress; if(newPass.length>=6) currentUser.password=newPass; saveFullData(); updateAuthUI(); closeModal('editProfileModal'); notify('✅ Perfil actualizado'); }
-(function init(){
-  loadFullData();
-  seedDemoData();
-  applyStoredConfig();
-  renderProducts(); renderInventoryTable(); renderStats(); renderAllOrders();
-  renderDeliveredList(); renderClientsTable(); renderHistoryList();
-  renderNewSaleNotification(); renderLogoSelector(); renderSeasonalGrid();
-  renderBanners(); updateFooter(); updateHeaderLogo(); updateHeaderStoreName(); updateCartCount();
-  document.getElementById('footerYear').textContent = new Date().getFullYear();
-  var pl = document.getElementById('pageLoading');
-  if (pl) { pl.style.opacity='0'; setTimeout(function(){ pl.style.display='none'; }, 500); }
-  if (!bgSelectorInitialized) { createBgSelectorModal(); bgSelectorInitialized=true; }
-  addBgSelectorButton();
-  setTimeout(setupRealtimeSync, 2000);
-})();
-setInterval(function(){ saveFullData(); }, 30000);
-</script>
 
-<!-- FUERZA CARGA EXCLUSIVA DESDE LA NUBE - SOLUCIONA MODO INCOGNITO -->
-<script>
-(function() {
-    var loadingEl = document.getElementById('pageLoading');
-    var loadingText = loadingEl ? loadingEl.querySelector('p') : null;
-    if (loadingText) loadingText.textContent = '🌐 Conectando con la nube...';
-    
-    function forceLoadFromCloud() {
-        if (!window._fbDB || !window._fbInitialized) {
-            setTimeout(forceLoadFromCloud, 500);
-            return;
-        }
-        
-        console.log('🌐 Cargando datos EXCLUSIVAMENTE desde Firebase...');
-        if (loadingText) loadingText.textContent = '📡 Descargando datos desde la nube...';
-        
-        var dbPromise = window._fbDB.collection('techparts').doc('db').get();
-        var bannersPromise = window._fbDB.collection('techparts').doc('banners').get();
-        
-        Promise.all([dbPromise, bannersPromise]).then(function(results) {
-            var dbDoc = results[0];
-            var bannersDoc = results[1];
-            var dataLoaded = false;
-            
-            if (dbDoc.exists) {
-                try {
-                    var cloudData = JSON.parse(dbDoc.data().v);
-                    if (cloudData && (cloudData.products || cloudData.users)) {
-                        window.DB = cloudData;
-                        if (window._fixDB) window._fixDB();
-                        console.log('☁️ Datos principales cargados desde la nube');
-                        dataLoaded = true;
-                        
-                        if (window.currentUser) {
-                            var updatedUser = window.DB.users.find(function(u) { return u.email === window.currentUser.email; });
-                            if (updatedUser) {
-                                window.currentUser = updatedUser;
-                                if (window.updateAuthUI) window.updateAuthUI();
-                            }
-                        }
-                    }
-                } catch(e) { console.warn('Error parseando DB cloud:', e); }
-            }
-            
-            if (bannersDoc.exists) {
-                try {
-                    var cloudBanners = JSON.parse(bannersDoc.data().v);
-                    if (cloudBanners && cloudBanners.slides) {
-                        window.bannersConfig = cloudBanners;
-                        console.log('☁️ Banners cargados desde la nube');
-                    }
-                } catch(e) { console.warn('Error parseando banners cloud:', e); }
-            }
-            
-            if (loadingText) loadingText.textContent = '✅ Datos sincronizados desde la nube';
-            
-            setTimeout(function() {
-                if (window.renderProducts) window.renderProducts();
-                if (window.renderInventoryTable) window.renderInventoryTable();
-                if (window.renderStats) window.renderStats();
-                if (window.renderAllOrders) window.renderAllOrders();
-                if (window.renderDeliveredList) window.renderDeliveredList();
-                if (window.renderClientsTable) window.renderClientsTable();
-                if (window.renderHistoryList) window.renderHistoryList();
-                if (window.renderBanners) window.renderBanners();
-                if (window.renderNewSaleNotification) window.renderNewSaleNotification();
-                if (window.updateFooter) window.updateFooter();
-                if (window.updateHeaderLogo) window.updateHeaderLogo();
-                if (window.updateHeaderStoreName) window.updateHeaderStoreName();
-                if (window.updateCartCount) window.updateCartCount();
-                if (window.updateAuthUI) window.updateAuthUI();
-                if (window.applyStoredConfig) window.applyStoredConfig();
-                if (window.renderLogoSelector) window.renderLogoSelector();
-                if (window.renderSeasonalGrid) window.renderSeasonalGrid();
-                
-                if (loadingEl) {
-                    loadingEl.style.opacity = '0';
-                    setTimeout(function() { if (loadingEl) loadingEl.style.display = 'none'; }, 500);
-                }
-                console.log('✅ UI actualizada con datos de la nube');
-            }, 100);
-        }).catch(function(err) {
-            console.warn('❌ Error cargando desde Firebase:', err);
-            if (loadingText) loadingText.textContent = '⚠️ Usando datos locales (fallback)';
-            setTimeout(function() {
-                if (window.renderProducts) window.renderProducts();
-                if (loadingEl) {
-                    loadingEl.style.opacity = '0';
-                    setTimeout(function() { if (loadingEl) loadingEl.style.display = 'none'; }, 500);
-                }
-            }, 500);
-        });
-    }
-    
-    setTimeout(forceLoadFromCloud, 100);
+// ==================== INICIALIZACIÓN ====================
+(function init(){
+  loadDataFromCloud();
 })();
 </script>
 
