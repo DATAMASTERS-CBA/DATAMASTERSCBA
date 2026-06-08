@@ -10,18 +10,59 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script>
-try {
-  firebase.initializeApp({
-    apiKey: "AIzaSyCEIAO0rgzkfQofsqviwvdQvumJNgUepZ8",
-    authDomain: "dmastersventas.firebaseapp.com",
-    projectId: "dmastersventas",
-    storageBucket: "dmastersventas.firebasestorage.app",
-    messagingSenderId: "361433365644",
-    appId: "1:361433365644:web:bd81e4e92d1bd36518cfa9"
-  });
-  window._fbDB = firebase.firestore();
-  console.log('Firebase OK');
-} catch(e) { window._fbDB = null; console.warn('Firebase error:', e); }
+window._fbConfig = {
+  apiKey: "AIzaSyCEIAO0rgzkfQofsqviwvdQvumJNgUepZ8",
+  authDomain: "dmastersventas.firebaseapp.com",
+  projectId: "dmastersventas",
+  storageBucket: "dmastersventas.firebasestorage.app",
+  messagingSenderId: "361433365644",
+  appId: "1:361433365644:web:bd81e4e92d1bd36518cfa9"
+};
+window._fbDB = null;
+window._fbInitialized = false;
+
+function _initFirebase() {
+  try {
+    if (typeof firebase === 'undefined') {
+      console.warn('Firebase SDK aun no disponible, reintentando...');
+      return false;
+    }
+    if (window._fbInitialized) return true;
+    if (firebase.apps && firebase.apps.length > 0) {
+      window._fbDB = firebase.firestore();
+    } else {
+      firebase.initializeApp(window._fbConfig);
+      window._fbDB = firebase.firestore();
+    }
+    window._fbInitialized = true;
+    console.log('Firebase conectado OK al proyecto: dmastersventas');
+    return true;
+  } catch(e) {
+    console.warn('Firebase error:', e);
+    window._fbDB = null;
+    return false;
+  }
+}
+
+// Intentar ahora; si falla, cargar scripts como fallback dinamico
+if (!_initFirebase()) {
+  (function() {
+    var scriptsLoaded = 0;
+    function onLoad() {
+      scriptsLoaded++;
+      if (scriptsLoaded === 2) { setTimeout(function(){ _initFirebase(); }, 200); }
+    }
+    function loadScript(src) {
+      var s = document.createElement('script');
+      s.src = src;
+      s.onload = onLoad;
+      s.onerror = function(){ console.warn('Error al cargar Firebase script:', src); onLoad(); };
+      document.head.appendChild(s);
+    }
+    loadScript('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js');
+    loadScript('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js');
+  })();
+}
 </script>
 <style>
 /* ===== CSS VARIABLES / THEMES ===== */
