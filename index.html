@@ -3,29 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TechParts Store</title>
+<title>TechParts Store - Sistema de Ventas</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-<!-- Firebase (opcional, no bloqueante) -->
+<!-- Firebase SDKs -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<script>
-try {
-  firebase.initializeApp({
-    apiKey: "AIzaSyCEIAO0rgzkfQofsqviwvdQvumJNgUepZ8",
-    authDomain: "dmastersventas.firebaseapp.com",
-    projectId: "dmastersventas",
-    storageBucket: "dmastersventas.firebasestorage.app",
-    messagingSenderId: "361433365644",
-    appId: "1:361433365644:web:bd81e4e92d1bd36518cfa9"
-  });
-  window._fbDB = firebase.firestore();
-  console.log('Firebase OK');
-} catch(e) { 
-  window._fbDB = null; 
-  console.warn('Firebase no disponible, modo local sólamente:', e); 
-}
-</script>
 <style>
 /* ===== CSS VARIABLES / THEMES ===== */
 :root {
@@ -129,7 +112,7 @@ try {
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; transition: var(--transition); background-position: center center !important; background-attachment: fixed !important; }
+body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; transition: var(--transition); }
 
 /* ===== ANIMACIONES ===== */
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -1008,6 +991,8 @@ footer {
         <button class="hbtn" onclick="exportDB()">💾 Guardar Backup</button>
         <button class="hbtn" onclick="triggerImport()">📂 Cargar Base de Datos</button>
         <input type="file" id="importFile" accept=".json" style="display:none" onchange="importDB(event)">
+        <button class="hbtn" onclick="syncToFirebase()">☁️ Sincronizar con Firebase</button>
+        <button class="hbtn" onclick="loadFromFirebase()">📥 Cargar desde Firebase</button>
         <button class="hbtn" onclick="showStore()">← Ir a la tienda</button>
       </div>
     </div>
@@ -1037,7 +1022,9 @@ footer {
           </div>
           <div class="inv-table-wrap">
             <table class="inv-table">
-              <thead><tr><th>Imagen</th><th>Nombre</th><th>N° Parte</th><th>Categoría</th><th>Precio</th><th>Stock</th><th>Badge</th><th>Acciones</th></tr></thead>
+              <thead>
+                <tr><th>Imagen</th><th>Nombre</th><th>N° Parte</th><th>Categoría</th><th>Precio</th><th>Stock</th><th>Badge</th><th>Acciones</th></tr>
+              </thead>
               <tbody id="invTbody"></tbody>
             </table>
           </div>
@@ -1131,6 +1118,32 @@ footer {
 <div class="notif-container" id="notifContainer"></div>
 
 <script>
+// ===== CONFIGURACIÓN DE FIREBASE (USANDO TU CONFIGURACIÓN) =====
+const firebaseConfig = {
+  apiKey: "AIzaSyCEIAO0rgzkfQofsqviwvdQvumJNgUepZ8",
+  authDomain: "dmastersventas.firebaseapp.com",
+  projectId: "dmastersventas",
+  storageBucket: "dmastersventas.firebasestorage.app",
+  messagingSenderId: "361433365644",
+  appId: "1:361433365644:web:bd81e4e92d1bd36518cfa9"
+};
+
+// Inicializar Firebase (solo si no está ya inicializado)
+let firebaseInitialized = false;
+let dbFirestore = null;
+
+try {
+  if (!firebase.apps || !firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+  }
+  dbFirestore = firebase.firestore();
+  firebaseInitialized = true;
+  console.log('✅ Firebase inicializado correctamente');
+} catch(e) {
+  console.warn('⚠️ Firebase no disponible:', e.message);
+  firebaseInitialized = false;
+}
+
 // ===== DATOS GLOBALES =====
 let DB = {
   products: [],
@@ -1207,7 +1220,7 @@ function formatNum(n) { return Number(n).toLocaleString('es-AR', { minimumFracti
 function stockLabel(s) { if (s >= 10) return `✅ ${s} en stock`; if (s > 0) return `⚠️ Últimas ${s} unidades`; return `❌ Sin stock`; }
 function notify(msg, type = 'info') { const c = document.getElementById('notifContainer'); if (!c) return; const d = document.createElement('div'); d.className = `notif ${type}`; const icons = { success: '✅', error: '❌', info: 'ℹ️' }; d.innerHTML = `<span class="notif-icon">${icons[type] || 'ℹ️'}</span><span>${escapeHtml(msg)}</span>`; c.appendChild(d); setTimeout(() => { d.style.opacity = '0'; d.style.transform = 'translateX(60px)'; setTimeout(() => d.remove(), 300); }, 3500); }
 
-// ===== GUARDAR DATOS (SOLO LOCALSTORAGE, FIREBASE OPCIONAL) =====
+// ===== GUARDAR/CARGAR DATOS EN LOCALSTORAGE =====
 function saveFullData() {
   try {
     localStorage.setItem('techparts_db', JSON.stringify(DB));
@@ -1216,16 +1229,11 @@ function saveFullData() {
     if (currentUser) localStorage.setItem('techparts_user', JSON.stringify(currentUser));
     else localStorage.removeItem('techparts_user');
     console.log('✅ Datos guardados en localStorage');
-  } catch(e) { console.warn('Error guardando:', e); }
-  
-  // Firebase opcional (no crítico)
-  try {
-    if (window._fbDB) {
-      var cleanDB = JSON.parse(JSON.stringify(DB));
-      window._fbDB.collection('techparts').doc('db').set({ v: JSON.stringify(cleanDB), updatedAt: new Date().toISOString() })
-        .catch(e => console.warn('Firebase save error (no crítico):', e));
-    }
-  } catch(e) {}
+    return true;
+  } catch(e) { 
+    console.warn('Error guardando:', e);
+    return false;
+  }
 }
 
 function loadFullData() {
@@ -1269,6 +1277,71 @@ function loadFullData() {
     DB.users.push({ name: 'Cliente Demo', email: 'cliente@demo.com', phone: '+5493510000000', address: 'Calle Demo 123', password: 'cliente123', role: 'user', createdAt: new Date().toISOString() });
   }
   saveFullData();
+}
+
+// ===== SINCRONIZACIÓN CON FIREBASE =====
+async function syncToFirebase() {
+  if (!firebaseInitialized || !dbFirestore) {
+    notify('⚠️ Firebase no está disponible. Verifica tu conexión a internet y las reglas de Firebase.', 'error');
+    return;
+  }
+  
+  notify('☁️ Subiendo datos a Firebase...', 'info');
+  try {
+    const cleanDB = JSON.parse(JSON.stringify(DB));
+    await dbFirestore.collection('techparts').doc('database').set({ data: cleanDB, updatedAt: new Date().toISOString() });
+    await dbFirestore.collection('techparts').doc('banners').set({ data: bannersConfig, updatedAt: new Date().toISOString() });
+    notify('✅ Datos subidos a Firebase correctamente', 'success');
+    localStorage.setItem('last_firebase_sync', new Date().toISOString());
+  } catch(e) {
+    console.error('Error subiendo a Firebase:', e);
+    notify('❌ Error al subir a Firebase. Verifica las reglas de seguridad en Firebase Console.', 'error');
+  }
+}
+
+async function loadFromFirebase() {
+  if (!firebaseInitialized || !dbFirestore) {
+    notify('⚠️ Firebase no está disponible. Verifica tu conexión.', 'error');
+    return;
+  }
+  
+  notify('☁️ Cargando datos desde Firebase...', 'info');
+  try {
+    const dbDoc = await dbFirestore.collection('techparts').doc('database').get();
+    const bannersDoc = await dbFirestore.collection('techparts').doc('banners').get();
+    
+    if (dbDoc.exists) {
+      const remoteDB = dbDoc.data().data;
+      if (remoteDB) {
+        DB = remoteDB;
+        if (!DB.deliveredOrders) DB.deliveredOrders = [];
+        if (!DB.reviewedSales) DB.reviewedSales = [];
+        if (!DB.categories) DB.categories = { brands: ['HP','Dell','Lenovo','Asus','Acer','Samsung'], models: {}, parts: ['Pantalla','Teclado','Carcasa','Madre','Batería','Disco SSD','Memoria RAM'] };
+        saveFullData();
+        notify('✅ Base de datos cargada desde Firebase', 'success');
+      }
+    }
+    
+    if (bannersDoc.exists) {
+      const remoteBanners = bannersDoc.data().data;
+      if (remoteBanners && remoteBanners.slides) {
+        bannersConfig = remoteBanners;
+        saveFullData();
+        notify('✅ Banners cargados desde Firebase', 'success');
+      }
+    }
+    
+    // Recargar toda la interfaz
+    applyStoredConfig();
+    renderProducts(); renderBanners(); renderInventoryTable();
+    renderStats(); renderAllOrders(); renderDeliveredList();
+    renderClientsTable(); renderHistoryList(); renderNewSaleNotification();
+    updateFooter(); updateHeaderLogo(); updateHeaderStoreName(); updateCartCount();
+    
+  } catch(e) {
+    console.error('Error cargando desde Firebase:', e);
+    notify('❌ Error al cargar desde Firebase. Verifica las reglas de seguridad.', 'error');
+  }
 }
 
 // ===== FUNCIONES DE AUTENTICACIÓN =====
@@ -1317,7 +1390,6 @@ function doLogin() {
   const normalizedUser = normalizeStr(user);
   const normalizedPass = normalizeStr(pass);
   
-  // Admin por defecto
   if (normalizedUser === 'dmadmin23' && normalizedPass === 'alexalex23') {
     currentUser = { name: 'Administrador', email: 'dmadmin23', role: 'admin', phone: '', address: '' };
     saveFullData();
@@ -1410,7 +1482,7 @@ function switchAuthTab(tab, el) {
 }
 function showRecovery() { document.getElementById('authLogin').style.display = 'none'; document.getElementById('authRegister').style.display = 'none'; document.getElementById('authRecovery').style.display = 'block'; }
 
-// ===== BANNERS (resumido por espacio, funciona igual) =====
+// ===== BANNERS (versión resumida pero funcional) =====
 function filterByBannerSearch() {
   if (bannersConfig.slides && bannersConfig.slides[currentBanner] && bannersConfig.slides[currentBanner].searchFilter) {
     const searchInput = document.getElementById('searchInput');
@@ -1658,6 +1730,8 @@ function switchAdminTab(tab,el){ document.querySelectorAll('.admin-tab').forEach
 function openUserMenu(){ if(!currentUser)return; document.getElementById('userProfileInfo').innerHTML=`<strong>${escapeHtml(currentUser.name)}</strong><br>✉️ ${escapeHtml(currentUser.email)}<br>${currentUser.phone?`📱 ${escapeHtml(currentUser.phone)}<br>`:''}${currentUser.address?`📍 ${escapeHtml(currentUser.address)}`:''}<button class="btn-secondary" style="margin-top:12px" onclick="openEditProfileModal()">✏️ Editar perfil</button>`; const myOrders=DB.orders.filter(o=>o.userId===currentUser.email); document.getElementById('myOrdersList').innerHTML=myOrders.length?myOrders.map(o=>renderOrderCard(o,false)).join(''):'<p>Sin pedidos</p>'; openModal('userMenuModal'); }
 function openEditProfileModal(){ if(!currentUser)return; const html=`<div class="modal-overlay" id="editProfileModal"><div class="modal-box"><div class="modal-header"><h2>✏️ Editar Perfil</h2><button class="modal-close" onclick="closeModal('editProfileModal')">✕</button></div><div class="modal-body"><div class="form-group"><label>Nombre</label><input type="text" id="editProfileName" value="${escapeHtml(currentUser.name)}"></div><div class="form-group"><label>Teléfono</label><input type="tel" id="editProfilePhone" value="${escapeHtml(currentUser.phone||'')}"></div><div class="form-group"><label>Dirección</label><input type="text" id="editProfileAddress" value="${escapeHtml(currentUser.address||'')}"></div><div class="form-group"><label>Nueva contraseña</label><input type="password" id="editProfilePassword" placeholder="Dejar vacío para no cambiar"></div><button class="btn-primary" onclick="saveProfileChanges()">Guardar</button><button class="btn-secondary" onclick="closeModal('editProfileModal')">Cancelar</button></div></div></div>`; document.body.insertAdjacentHTML('beforeend',html); document.getElementById('editProfileModal').classList.add('open'); }
 function saveProfileChanges(){ if(!currentUser)return; const newName=document.getElementById('editProfileName').value.trim(); const newPhone=document.getElementById('editProfilePhone').value.trim(); const newAddress=document.getElementById('editProfileAddress').value.trim(); const newPass=document.getElementById('editProfilePassword').value; if(!newName){ notify('⚠️ Nombre requerido','error'); return; } const idx=DB.users.findIndex(u=>u.email===currentUser.email); if(idx!==-1){ DB.users[idx].name=newName; DB.users[idx].phone=newPhone; DB.users[idx].address=newAddress; if(newPass.length>=6) DB.users[idx].password=newPass; } currentUser.name=newName; currentUser.phone=newPhone; currentUser.address=newAddress; if(newPass.length>=6) currentUser.password=newPass; saveFullData(); updateAuthUI(); closeModal('editProfileModal'); notify('✅ Perfil actualizado'); }
+
+// Inicialización
 (function init(){
   loadFullData();
   applyStoredConfig();
@@ -1670,6 +1744,13 @@ function saveProfileChanges(){ if(!currentUser)return; const newName=document.ge
   if (pl) { pl.style.opacity='0'; setTimeout(function(){ pl.style.display='none'; }, 500); }
   if (!bgSelectorInitialized) { bgSelectorInitialized=true; }
   addBgSelectorButton();
+  
+  // Mostrar estado de Firebase
+  if (!firebaseInitialized) {
+    notify('⚠️ Firebase no disponible. La sincronización en la nube no está activa. Los datos se guardan localmente.', 'info');
+  } else {
+    notify('✅ Firebase disponible. Usa los botones de sincronización en el panel de administración.', 'info');
+  }
 })();
 setInterval(function(){ saveFullData(); }, 30000);
 </script>
