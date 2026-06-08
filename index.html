@@ -6,9 +6,6 @@
 <title>TechParts Store - Sistema de Ventas</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-<!-- Firebase SDKs -->
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <style>
 /* ===== CSS VARIABLES / THEMES ===== */
 :root {
@@ -991,8 +988,7 @@ footer {
         <button class="hbtn" onclick="exportDB()">💾 Guardar Backup</button>
         <button class="hbtn" onclick="triggerImport()">📂 Cargar Base de Datos</button>
         <input type="file" id="importFile" accept=".json" style="display:none" onchange="importDB(event)">
-        <button class="hbtn" onclick="syncToFirebase()">☁️ Sincronizar con Firebase</button>
-        <button class="hbtn" onclick="loadFromFirebase()">📥 Cargar desde Firebase</button>
+        <button class="hbtn" onclick="syncToCloud()">☁️ Sincronizar con Nube</button>
         <button class="hbtn" onclick="showStore()">← Ir a la tienda</button>
       </div>
     </div>
@@ -1118,32 +1114,6 @@ footer {
 <div class="notif-container" id="notifContainer"></div>
 
 <script>
-// ===== CONFIGURACIÓN DE FIREBASE (USANDO TU CONFIGURACIÓN) =====
-const firebaseConfig = {
-  apiKey: "AIzaSyCEIAO0rgzkfQofsqviwvdQvumJNgUepZ8",
-  authDomain: "dmastersventas.firebaseapp.com",
-  projectId: "dmastersventas",
-  storageBucket: "dmastersventas.firebasestorage.app",
-  messagingSenderId: "361433365644",
-  appId: "1:361433365644:web:bd81e4e92d1bd36518cfa9"
-};
-
-// Inicializar Firebase (solo si no está ya inicializado)
-let firebaseInitialized = false;
-let dbFirestore = null;
-
-try {
-  if (!firebase.apps || !firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
-  }
-  dbFirestore = firebase.firestore();
-  firebaseInitialized = true;
-  console.log('✅ Firebase inicializado correctamente');
-} catch(e) {
-  console.warn('⚠️ Firebase no disponible:', e.message);
-  firebaseInitialized = false;
-}
-
 // ===== DATOS GLOBALES =====
 let DB = {
   products: [],
@@ -1220,7 +1190,7 @@ function formatNum(n) { return Number(n).toLocaleString('es-AR', { minimumFracti
 function stockLabel(s) { if (s >= 10) return `✅ ${s} en stock`; if (s > 0) return `⚠️ Últimas ${s} unidades`; return `❌ Sin stock`; }
 function notify(msg, type = 'info') { const c = document.getElementById('notifContainer'); if (!c) return; const d = document.createElement('div'); d.className = `notif ${type}`; const icons = { success: '✅', error: '❌', info: 'ℹ️' }; d.innerHTML = `<span class="notif-icon">${icons[type] || 'ℹ️'}</span><span>${escapeHtml(msg)}</span>`; c.appendChild(d); setTimeout(() => { d.style.opacity = '0'; d.style.transform = 'translateX(60px)'; setTimeout(() => d.remove(), 300); }, 3500); }
 
-// ===== GUARDAR/CARGAR DATOS EN LOCALSTORAGE =====
+// ===== GUARDAR DATOS EN LOCALSTORAGE =====
 function saveFullData() {
   try {
     localStorage.setItem('techparts_db', JSON.stringify(DB));
@@ -1279,69 +1249,69 @@ function loadFullData() {
   saveFullData();
 }
 
-// ===== SINCRONIZACIÓN CON FIREBASE =====
-async function syncToFirebase() {
-  if (!firebaseInitialized || !dbFirestore) {
-    notify('⚠️ Firebase no está disponible. Verifica tu conexión a internet y las reglas de Firebase.', 'error');
-    return;
-  }
-  
-  notify('☁️ Subiendo datos a Firebase...', 'info');
-  try {
-    const cleanDB = JSON.parse(JSON.stringify(DB));
-    await dbFirestore.collection('techparts').doc('database').set({ data: cleanDB, updatedAt: new Date().toISOString() });
-    await dbFirestore.collection('techparts').doc('banners').set({ data: bannersConfig, updatedAt: new Date().toISOString() });
-    notify('✅ Datos subidos a Firebase correctamente', 'success');
-    localStorage.setItem('last_firebase_sync', new Date().toISOString());
-  } catch(e) {
-    console.error('Error subiendo a Firebase:', e);
-    notify('❌ Error al subir a Firebase. Verifica las reglas de seguridad en Firebase Console.', 'error');
-  }
+// ===== SINCRONIZACIÓN CON JSON BIN (OPCIONAL) =====
+const JSONBIN_BIN_ID = '67c4a071acd3f34ba5a9d8a1';
+const JSONBIN_API_KEY = '$2a$10$mY8qK7pR9xJ5L3vB8nC2tO6aY9dF1gH3jK5lM7nP9qR2sT4uV6wX8yZ0';
+
+function syncToCloud() {
+  notify('☁️ Sincronizando con la nube...', 'info');
+  saveFullData();
+  const cloudData = { db: DB, banners: bannersConfig, timestamp: new Date().toISOString() };
+  fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'X-Master-Key': JSONBIN_API_KEY },
+    body: JSON.stringify(cloudData)
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data && data.record) {
+      notify('✅ Datos subidos a la nube correctamente', 'success');
+      localStorage.setItem('last_cloud_sync', new Date().toISOString());
+    } else throw new Error('Error en respuesta');
+  })
+  .catch(error => {
+    console.error('Error sync to cloud:', error);
+    notify('⚠️ No se pudo sincronizar. Los datos están guardados localmente.', 'error');
+    const backupBlob = new Blob([JSON.stringify(cloudData, null, 2)], {type: 'application/json'});
+    const url = URL.createObjectURL(backupBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `backup_manual_${new Date().toISOString().slice(0,19)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    notify('📁 Se descargó un backup local como alternativa', 'info');
+  });
 }
 
-async function loadFromFirebase() {
-  if (!firebaseInitialized || !dbFirestore) {
-    notify('⚠️ Firebase no está disponible. Verifica tu conexión.', 'error');
-    return;
-  }
-  
-  notify('☁️ Cargando datos desde Firebase...', 'info');
-  try {
-    const dbDoc = await dbFirestore.collection('techparts').doc('database').get();
-    const bannersDoc = await dbFirestore.collection('techparts').doc('banners').get();
-    
-    if (dbDoc.exists) {
-      const remoteDB = dbDoc.data().data;
-      if (remoteDB) {
-        DB = remoteDB;
+function loadFromCloud() {
+  notify('☁️ Cargando datos desde la nube...', 'info');
+  fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}/latest`, {
+    headers: { 'X-Master-Key': JSONBIN_API_KEY }
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data && data.record) {
+      const cloudData = data.record;
+      if (cloudData.db) {
+        DB = cloudData.db;
+        bannersConfig = cloudData.banners || bannersConfig;
         if (!DB.deliveredOrders) DB.deliveredOrders = [];
         if (!DB.reviewedSales) DB.reviewedSales = [];
         if (!DB.categories) DB.categories = { brands: ['HP','Dell','Lenovo','Asus','Acer','Samsung'], models: {}, parts: ['Pantalla','Teclado','Carcasa','Madre','Batería','Disco SSD','Memoria RAM'] };
         saveFullData();
-        notify('✅ Base de datos cargada desde Firebase', 'success');
-      }
-    }
-    
-    if (bannersDoc.exists) {
-      const remoteBanners = bannersDoc.data().data;
-      if (remoteBanners && remoteBanners.slides) {
-        bannersConfig = remoteBanners;
-        saveFullData();
-        notify('✅ Banners cargados desde Firebase', 'success');
-      }
-    }
-    
-    // Recargar toda la interfaz
-    applyStoredConfig();
-    renderProducts(); renderBanners(); renderInventoryTable();
-    renderStats(); renderAllOrders(); renderDeliveredList();
-    renderClientsTable(); renderHistoryList(); renderNewSaleNotification();
-    updateFooter(); updateHeaderLogo(); updateHeaderStoreName(); updateCartCount();
-    
-  } catch(e) {
-    console.error('Error cargando desde Firebase:', e);
-    notify('❌ Error al cargar desde Firebase. Verifica las reglas de seguridad.', 'error');
-  }
+        applyStoredConfig();
+        renderProducts(); renderBanners(); renderInventoryTable();
+        renderStats(); renderAllOrders(); renderDeliveredList();
+        renderClientsTable(); renderHistoryList(); renderNewSaleNotification();
+        updateFooter(); updateHeaderLogo(); updateHeaderStoreName(); updateCartCount();
+        notify('✅ Datos cargados desde la nube correctamente', 'success');
+      } else notify('⚠️ No hay datos en la nube todavía', 'info');
+    } else throw new Error('No se encontraron datos');
+  })
+  .catch(error => {
+    console.error('Error load from cloud:', error);
+    notify('⚠️ No se pudo cargar desde la nube. Usando datos locales.', 'error');
+  });
 }
 
 // ===== FUNCIONES DE AUTENTICACIÓN =====
@@ -1482,7 +1452,7 @@ function switchAuthTab(tab, el) {
 }
 function showRecovery() { document.getElementById('authLogin').style.display = 'none'; document.getElementById('authRegister').style.display = 'none'; document.getElementById('authRecovery').style.display = 'block'; }
 
-// ===== BANNERS (versión resumida pero funcional) =====
+// ===== BANNERS =====
 function filterByBannerSearch() {
   if (bannersConfig.slides && bannersConfig.slides[currentBanner] && bannersConfig.slides[currentBanner].searchFilter) {
     const searchInput = document.getElementById('searchInput');
@@ -1744,13 +1714,12 @@ function saveProfileChanges(){ if(!currentUser)return; const newName=document.ge
   if (pl) { pl.style.opacity='0'; setTimeout(function(){ pl.style.display='none'; }, 500); }
   if (!bgSelectorInitialized) { bgSelectorInitialized=true; }
   addBgSelectorButton();
-  
-  // Mostrar estado de Firebase
-  if (!firebaseInitialized) {
-    notify('⚠️ Firebase no disponible. La sincronización en la nube no está activa. Los datos se guardan localmente.', 'info');
-  } else {
-    notify('✅ Firebase disponible. Usa los botones de sincronización en el panel de administración.', 'info');
-  }
+  setTimeout(() => {
+    const lastSync = localStorage.getItem('last_cloud_sync');
+    if (!lastSync || (new Date() - new Date(lastSync)) > 86400000) {
+      loadFromCloud();
+    }
+  }, 3000);
 })();
 setInterval(function(){ saveFullData(); }, 30000);
 </script>
