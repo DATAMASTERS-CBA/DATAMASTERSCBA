@@ -6,7 +6,6 @@
 <title>TechParts Store</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-<!-- Firebase carga primero para estar listo antes que el script principal -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script>
@@ -20,6 +19,7 @@ window._fbConfig = {
 };
 window._fbDB = null;
 window._fbInitialized = false;
+window._realtimeUnsubscribe = null;
 
 function _initFirebase() {
   try {
@@ -44,7 +44,6 @@ function _initFirebase() {
   }
 }
 
-// Intentar ahora; si falla, cargar scripts como fallback dinamico
 if (!_initFirebase()) {
   (function() {
     var scriptsLoaded = 0;
@@ -65,7 +64,6 @@ if (!_initFirebase()) {
 }
 </script>
 <style>
-/* ===== CSS VARIABLES / THEMES ===== */
 :root {
   --primary: #FFE600;
   --primary-dark: #e6cf00;
@@ -169,7 +167,6 @@ if (!_initFirebase()) {
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; transition: var(--transition); background-position: center center !important; background-attachment: fixed !important; }
 
-/* ===== ANIMACIONES ===== */
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes slideInLeft { from { transform: translateX(-100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
@@ -183,7 +180,6 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
 .banner-animation-zoom { animation: zoomIn 0.8s ease forwards; }
 .banner-animation-bounce { animation: bounceIn 0.8s ease forwards; }
 
-/* ===== HEADER ===== */
 #header {
   background: var(--header-bg);
   backdrop-filter: blur(12px);
@@ -242,10 +238,8 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
   display: flex; align-items: center; justify-content: center;
 }
 
-/* ===== MAIN LAYOUT ===== */
 .main-wrap { max-width: 1400px; margin: 0 auto; padding: 0 24px 40px; }
 
-/* ===== BANNER ===== */
 .banner-carousel {
   border-radius: var(--radius-lg);
   overflow: hidden;
@@ -289,7 +283,6 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
   border-radius: 4px;
 }
 
-/* ===== TOOLBAR ===== */
 .toolbar {
   display: flex; align-items: center; gap: 12px;
   flex-wrap: wrap; margin-bottom: 20px;
@@ -311,7 +304,6 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
 .chip.active, .chip:hover { background: var(--primary); color: var(--secondary); border-color: var(--primary); font-weight: 600; }
 .results-count { color: var(--text3); font-size: 0.85rem; }
 
-/* ===== PRODUCT GRID ===== */
 .products-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
@@ -363,7 +355,6 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
 }
 .btn-share:hover { background: var(--bg3); }
 
-/* ===== MODAL BASE ===== */
 .modal-overlay {
   position: fixed; inset: 0; z-index: 2000;
   background: rgba(0,0,0,0.55); backdrop-filter: blur(4px);
@@ -399,7 +390,6 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
 .modal-close:hover { background: var(--accent); color: #fff; }
 .modal-body { padding: 24px; }
 
-/* ===== FORMS ===== */
 .form-group { margin-bottom: 16px; }
 .form-group label { display: block; font-size: 0.83rem; font-weight: 600; color: var(--text2); margin-bottom: 6px; }
 .form-group input, .form-group select, .form-group textarea {
@@ -432,7 +422,6 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
 .btn-success { background: #059669; color: #fff; border: none; }
 .btn-success:hover { background: #047857; }
 
-/* ===== AUTH MODAL ===== */
 .auth-tabs { display: flex; gap: 0; margin-bottom: 24px; border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--border); }
 .auth-tab {
   flex: 1; padding: 10px; text-align: center;
@@ -441,12 +430,9 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
   transition: var(--transition); border: none; font-family: var(--font);
 }
 .auth-tab.active { background: var(--primary); color: var(--secondary); }
-.forgot-link {
-  text-align: center; margin-top: 12px; font-size: 0.8rem;
-}
+.forgot-link { text-align: center; margin-top: 12px; font-size: 0.8rem; }
 .forgot-link a { color: var(--primary); cursor: pointer; text-decoration: none; }
 
-/* ===== PRODUCT DETAIL ===== */
 .product-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
 .pd-gallery { position: relative; }
 .pd-main-img { width: 100%; aspect-ratio: 1; background: var(--bg3); border-radius: var(--radius); overflow: hidden; margin-bottom: 12px; }
@@ -466,7 +452,6 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
 .pd-description h4 { font-size: 0.9rem; font-weight: 700; margin-bottom: 8px; color: var(--text2); }
 .pd-description p { font-size: 0.88rem; line-height: 1.5; color: var(--text2); }
 
-/* ===== CART ===== */
 .cart-items { display: flex; flex-direction: column; gap: 14px; margin-bottom: 20px; }
 .cart-item {
   display: flex; gap: 14px; align-items: center;
@@ -496,7 +481,6 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
 .empty-cart { text-align: center; padding: 40px; color: var(--text3); }
 .empty-cart .icon { font-size: 48px; margin-bottom: 12px; }
 
-/* ===== CHECKOUT ===== */
 .payment-methods { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
 .payment-opt {
   border: 2px solid var(--border); border-radius: var(--radius-sm);
@@ -507,7 +491,6 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
 .payment-opt .icon { font-size: 24px; margin-bottom: 4px; }
 .payment-opt .label { font-size: 0.8rem; font-weight: 600; }
 
-/* ===== ADMIN PANEL ===== */
 .admin-wrap { max-width: 1400px; margin: 0 auto; padding: 24px; }
 .admin-header {
   display: flex; align-items: center; gap: 16px;
@@ -525,7 +508,6 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
 .admin-section { display: none; }
 .admin-section.active { display: block; }
 
-/* ===== STATS GRID ===== */
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -557,7 +539,6 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
   word-break: break-word;
 }
 
-/* ===== INVENTORY TABLE ===== */
 .inv-toolbar { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
 .inv-table-wrap { overflow-x: auto; border-radius: var(--radius); border: 1px solid var(--border); }
 .inv-table { width: 100%; border-collapse: collapse; min-width: 800px; }
@@ -580,7 +561,6 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
 .tbl-edit:hover { background: var(--primary); color: var(--secondary); }
 .tbl-del:hover { background: var(--badge-oferta); color: #fff; }
 
-/* ===== ADD PRODUCT FORM ===== */
 .add-product-form { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); padding: 24px; }
 .add-product-form h3 { font-size: 1.05rem; font-weight: 700; margin-bottom: 20px; }
 .badge-selector { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -599,7 +579,6 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
 .badge-opt.active[data-val="Especial"] { background: var(--badge-esp); color: #fff; }
 .badge-opt.active[data-val="Oferta"] { background: var(--badge-oferta); color: #fff; }
 
-/* ===== THEME SELECTOR ===== */
 .theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px,1fr)); gap: 14px; }
 .theme-card {
   border: 2px solid var(--border); border-radius: var(--radius);
@@ -617,7 +596,6 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
 .color-swatch { width: 44px; height: 44px; border-radius: 50%; border: 3px solid transparent; cursor: pointer; transition: var(--transition); }
 .color-swatch.active, .color-swatch:hover { border-color: var(--text); transform: scale(1.15); }
 
-/* ===== IDENTITY ===== */
 .identity-preview {
   background: var(--header-bg); border-radius: var(--radius);
   padding: 24px; margin-top: 16px; text-align: center;
@@ -668,7 +646,6 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
   justify-content: center;
 }
 
-/* Seasonal backgrounds */
 .seasonal-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
@@ -687,7 +664,6 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
 .seasonal-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
 .seasonal-card.active { border-color: var(--primary); }
 
-/* ===== ORDERS ===== */
 .orders-list { display: flex; flex-direction: column; gap: 16px; }
 .order-card {
   background: var(--surface); border: 1px solid var(--border);
@@ -710,7 +686,6 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
 .order-total { font-weight: 800; font-family: var(--font-mono); font-size: 1.1rem; }
 .order-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
-/* ===== HISTORIAL VENTAS ===== */
 .history-filters {
   display: flex;
   gap: 12px;
@@ -744,7 +719,6 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
   cursor: pointer;
 }
 
-/* ===== NEW SALE NOTIFICATION ===== */
 .new-sale-card {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   border-radius: var(--radius);
@@ -802,7 +776,6 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
   background: white;
 }
 
-/* ===== DELIVERED PRODUCTS ===== */
 .delivered-products-list { display: flex; flex-direction: column; gap: 16px; margin-top: 20px; }
 .delivered-card {
   background: var(--surface); border: 1px solid var(--border);
@@ -818,7 +791,6 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
 .delivered-item:last-child { border-bottom: none; }
 .delivered-actions { display: flex; gap: 8px; margin-top: 12px; }
 
-/* ===== NOTIFICATIONS ===== */
 .notif-container { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
 .notif {
   background: var(--surface); border: 1px solid var(--border);
@@ -834,7 +806,6 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
 .notif-icon { font-size: 20px; }
 @keyframes notifIn { from { opacity:0; transform: translateX(60px); } to { opacity:1; transform: translateX(0); } }
 
-/* ===== FOOTER ===== */
 footer {
   background: var(--secondary);
   color: rgba(255,255,255,0.8);
@@ -849,7 +820,6 @@ footer {
 .footer-bottom { border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
 .footer-bottom p { font-size: 0.82rem; color: rgba(255,255,255,0.4); }
 
-/* ===== SHARE PANEL ===== */
 .share-panel {
   position: fixed; inset: 0; z-index: 3000;
   background: rgba(0,0,0,0.6); backdrop-filter: blur(6px);
@@ -870,7 +840,6 @@ footer {
 .share-item:hover .share-icon { transform: scale(1.12); }
 .share-item span { font-size: 0.75rem; font-weight: 600; color: var(--text2); }
 
-/* ===== RESPONSIVE ===== */
 @media (max-width: 768px) {
   .header-inner { flex-wrap: wrap; height: auto; padding: 10px 0; gap: 10px; }
   .search-wrap { order: 3; width: 100%; max-width: none; }
@@ -886,7 +855,6 @@ footer {
   .stat-val { font-size: 1.4rem; }
 }
 
-/* ===== LOADING ===== */
 .page-loading {
   position: fixed; inset: 0; z-index: 9999;
   background: var(--secondary);
@@ -971,14 +939,12 @@ footer {
 </head>
 <body>
 
-<!-- Loading screen -->
 <div class="page-loading" id="pageLoading">
   <div class="loading-logo">💻</div>
   <div class="loading-bar"><div class="loading-fill"></div></div>
   <p style="color:rgba(255,255,255,0.5);font-size:0.85rem;">Cargando tienda...</p>
 </div>
 
-<!-- HEADER -->
 <header id="header">
   <div class="header-inner">
     <a href="#" class="logo" onclick="showStore()">
@@ -998,7 +964,6 @@ footer {
   </div>
 </header>
 
-<!-- STORE VIEW -->
 <div id="storeView">
   <div class="main-wrap">
     <div class="banner-carousel" id="bannerCarousel" onclick="filterByBannerSearch()"></div>
@@ -1037,7 +1002,6 @@ footer {
   </footer>
 </div>
 
-<!-- ADMIN VIEW -->
 <div id="adminView" style="display:none">
   <div class="admin-wrap">
     <div class="admin-header">
@@ -1146,7 +1110,6 @@ footer {
   </div>
 </div>
 
-<!-- MODALES -->
 <div class="modal-overlay" id="bannerConfigModal">
   <div class="modal-box large">
     <div class="modal-header">
@@ -1169,7 +1132,6 @@ footer {
 <div class="notif-container" id="notifContainer"></div>
 
 <script>
-// ===== DATOS GLOBALES =====
 let DB = {
   products: [],
   users: [],
@@ -1222,8 +1184,9 @@ let selectedBadge = '';
 let bgSelectorInitialized = false;
 let deliveredFilterQuery = '';
 let historyStatusFilter = 'all';
+let _realtimeUnsubscribe = null;
+let _realtimeBannersUnsubscribe = null;
 
-// ===== SEASONAL BACKGROUNDS =====
 const seasonalBackgrounds = {
   "ene": { name: "🎆 Año Nuevo", gradient: "linear-gradient(135deg,#1a1a2e 0%,#16213e 25%,#0f3460 50%,#e94560 100%)", icon: "🎆" },
   "feb": { name: "💕 San Valentín", gradient: "linear-gradient(135deg,#ff6b6b 0%,#c92a2a 25%,#ff8787 50%,#ff6b6b 100%)", icon: "💕" },
@@ -1239,13 +1202,11 @@ const seasonalBackgrounds = {
   "dic": { name: "🎄 Navidad", gradient: "linear-gradient(135deg,#c92a2a 0%,#e03131 25%,#f03e3e 50%,#c92a2a 75%,#2b8a3e 100%)", icon: "🎄" }
 };
 
-// ===== UTILIDADES =====
 function escapeHtml(s) { if (!s) return ''; return String(s).replace(/[&<>]/g, function(m) { if (m === '&') return '&amp;'; if (m === '<') return '&lt;'; if (m === '>') return '&gt;'; return m; }); }
 function formatNum(n) { return Number(n).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 function stockLabel(s) { if (s >= 10) return `✅ ${s} en stock`; if (s > 0) return `⚠️ Últimas ${s} unidades`; return `❌ Sin stock`; }
 function notify(msg, type = 'info') { const c = document.getElementById('notifContainer'); if (!c) return; const d = document.createElement('div'); d.className = `notif ${type}`; const icons = { success: '✅', error: '❌', info: 'ℹ️' }; d.innerHTML = `<span class="notif-icon">${icons[type] || 'ℹ️'}</span><span>${escapeHtml(msg)}</span>`; c.appendChild(d); setTimeout(() => { d.style.opacity = '0'; d.style.transform = 'translateX(60px)'; setTimeout(() => d.remove(), 300); }, 3500); }
 
-// ===== FUNCIONES DE AUTENTICACIÓN =====
 function normalizeStr(str) { return str ? str.toLowerCase().trim() : ''; }
 function saveToAutocomplete(username, password) {
   try {
@@ -1283,6 +1244,7 @@ function setupUserDatalist() {
   const history = JSON.parse(localStorage.getItem('techparts_user_history') || '[]');
   datalist.innerHTML = history.map(item => `<option value="${escapeHtml(item.username)}">`).join('');
 }
+
 function doLogin() {
   const userInput = document.getElementById('loginUser');
   const passInput = document.getElementById('loginPass');
@@ -1291,8 +1253,7 @@ function doLogin() {
   const normalizedUser = normalizeStr(user);
   const normalizedPass = normalizeStr(pass);
   if (normalizedUser === 'dmadmin23' && normalizedPass === 'alexalex23') {
-    currentUser = { name: 'Administrador', email: 'dmadmin23', role: 'admin', phone: '', address: '' };
-    window._fbSyncPending = false;
+    currentUser = { name: 'Administrador', email: 'dmadmin23', role: 'admin', phone: '', address: '', updatedAt: Date.now() };
     saveFullData();
     updateAuthUI();
     saveToAutocomplete(user, pass);
@@ -1318,6 +1279,7 @@ function doLogin() {
     else notify('❌ Usuario no encontrado. ¿Necesitas registrarte?', 'error');
   }
 }
+
 function doRegister() {
   const name = document.getElementById('regName').value.trim();
   const email = document.getElementById('regEmail').value.trim();
@@ -1326,19 +1288,21 @@ function doRegister() {
   const pass = document.getElementById('regPass').value;
   if (!name || !email || !phone || !address || !pass) { notify('⚠️ Todos los campos son obligatorios', 'error'); return; }
   if (pass.length < 6) { notify('⚠️ La contraseña debe tener al menos 6 caracteres', 'error'); return; }
-  if (DB.users.find(u => normalizeStr(u.email) === normalizeStr(email))) { notify('⚠️ El correo ya está registrado', 'error'); return; }
-  if (DB.users.find(u => normalizeStr(u.phone) === normalizeStr(phone))) { notify('⚠️ El número de teléfono ya está registrado', 'error'); return; }
-  const newUser = { name, email, phone, address, password: pass, role: 'user', createdAt: new Date().toISOString() };
+  if (DB.users.find(u => u.email === email)) { notify('⚠️ El correo ya está registrado', 'error'); return; }
+  if (DB.users.find(u => u.phone === phone)) { notify('⚠️ El número de teléfono ya está registrado', 'error'); return; }
+  const newUser = { name, email, phone, address, password: pass, role: 'user', createdAt: new Date().toISOString(), updatedAt: Date.now() };
   DB.users.push(newUser);
   currentUser = newUser;
-  // Cancelar sync pendiente: ya tenemos datos frescos con el nuevo usuario
-  window._fbSyncPending = false;
   saveFullData();
   updateAuthUI();
   saveToAutocomplete(email, pass);
   closeModal('authModal');
   notify(`✅ ¡Registro exitoso! Bienvenido, ${name}`, 'success');
+  if (document.getElementById('tab-clients') && document.getElementById('tab-clients').classList.contains('active')) {
+    renderClientsTable(document.getElementById('clientsSearch')?.value || '');
+  }
 }
+
 function sendRecoveryEmail() {
   const email = document.getElementById('recoveryEmail').value.trim();
   const msgDiv = document.getElementById('recoveryMsg');
@@ -1349,13 +1313,13 @@ function sendRecoveryEmail() {
   navigator.clipboard.writeText(mensaje).then(() => msgDiv.innerHTML = `<span style="color:var(--badge-new)">✅ Se ha enviado un recordatorio a ${email}</span><div style="margin-top:8px;font-size:0.75rem">(La contraseña se copió al portapapeles)</div>`).catch(() => msgDiv.innerHTML = `<span style="color:var(--badge-new)">✅ Tu contraseña es: ${user.password}</span>`);
   setTimeout(() => { msgDiv.innerHTML = ''; switchAuthTab('login', document.querySelector('.auth-tab')); document.getElementById('loginUser').value = email; }, 3000);
 }
+
 function doLogout() { currentUser = null; saveFullData(); updateAuthUI(); closeModal('userMenuModal'); showStore(); notify('👋 Sesión cerrada', 'info'); }
 function updateAuthUI() { const authBtn = document.getElementById('authBtn'), userBtn = document.getElementById('userBtn'), adminBtn = document.getElementById('adminBtn'), userNameSpan = document.getElementById('userNameDisplay'); if (currentUser) { if (authBtn) authBtn.style.display = 'none'; if (userBtn) userBtn.style.display = 'flex'; if (userNameSpan) userNameSpan.textContent = (currentUser.name || '').split(' ')[0]; if (adminBtn) adminBtn.style.display = currentUser.role === 'admin' ? 'flex' : 'none'; } else { if (authBtn) authBtn.style.display = 'flex'; if (userBtn) userBtn.style.display = 'none'; if (adminBtn) adminBtn.style.display = 'none'; } }
 function openAuthModal() { document.getElementById('loginUser').value = ''; document.getElementById('loginPass').value = ''; document.getElementById('authRecovery').style.display = 'none'; document.getElementById('authLogin').style.display = 'block'; document.getElementById('authRegister').style.display = 'none'; openModal('authModal'); setTimeout(() => { loadAutocompleteForLogin(); setupUserDatalist(); }, 100); }
 function switchAuthTab(tab, el) { document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active')); if (el) el.classList.add('active'); document.getElementById('authLogin').style.display = tab === 'login' ? 'block' : 'none'; document.getElementById('authRegister').style.display = tab === 'register' ? 'block' : 'none'; document.getElementById('authRecovery').style.display = 'none'; }
 function showRecovery() { document.getElementById('authLogin').style.display = 'none'; document.getElementById('authRegister').style.display = 'none'; document.getElementById('authRecovery').style.display = 'block'; }
 
-// ===== FUNCIONES PARA GUARDAR/CARGAR =====
 function _fixDB() {
   if (!DB.deliveredOrders) DB.deliveredOrders = [];
   if (!DB.reviewedSales) DB.reviewedSales = [];
@@ -1366,7 +1330,11 @@ function _fixDB() {
   if (!DB.config.bgType) DB.config.bgType = 'default';
   if (!DB.config.bgFitMode) DB.config.bgFitMode = 'cover';
 }
+
 function saveFullData() {
+  if (DB.users) {
+    DB.users.forEach(user => { if (!user.updatedAt) user.updatedAt = Date.now(); });
+  }
   try {
     localStorage.setItem('techparts_db', JSON.stringify(DB));
     localStorage.setItem('techparts_cart', JSON.stringify(cart));
@@ -1374,22 +1342,20 @@ function saveFullData() {
     if (currentUser) localStorage.setItem('techparts_user', JSON.stringify(currentUser));
     else localStorage.removeItem('techparts_user');
   } catch(e) {}
-  // Firebase en segundo plano
   try {
     var fbdb = window._fbDB;
     if (fbdb) {
-      fbdb.collection('techparts').doc('db').set({ v: JSON.stringify(DB) })
+      const dbCopy = JSON.parse(JSON.stringify(DB));
+      fbdb.collection('techparts').doc('db').set({ v: JSON.stringify(dbCopy), updatedAt: firebase.firestore.FieldValue.serverTimestamp() })
         .then(function(){ console.log('Firebase DB guardado OK'); })
         .catch(function(e){ console.warn('Firebase save error:', e); });
       fbdb.collection('techparts').doc('banners').set({ v: JSON.stringify(bannersConfig) })
         .catch(function(e){ console.warn('Firebase banners error:', e); });
-    } else {
-      console.warn('saveFullData: Firebase no disponible aún');
     }
   } catch(e) { console.warn('saveFullData Firebase error:', e); }
 }
+
 function loadFullData() {
-  // SIEMPRE cargar localStorage primero (instantáneo, nunca falla)
   try {
     var raw = localStorage.getItem('techparts_db');
     if (raw) { DB = Object.assign({}, DB, JSON.parse(raw)); }
@@ -1401,109 +1367,100 @@ function loadFullData() {
     if (rawUser) currentUser = JSON.parse(rawUser);
     _fixDB();
   } catch(e) { console.warn('localStorage error:', e); }
-  // Firebase: intentar sincronizar DESPUÉS de renderizar, sin bloquear nada
-  window._fbSyncPending = true;
-  return true;
 }
-function _syncFirebase() {
-  if (!window._fbSyncPending) return;
-  // Si Firebase todavía no cargó, reintentar hasta 10 segundos
+
+function setupRealtimeSync() {
   if (!window._fbDB) {
-    if (!window._fbRetries) window._fbRetries = 0;
-    window._fbRetries++;
-    if (window._fbRetries < 20) { setTimeout(_syncFirebase, 500); return; }
-    console.warn('Firebase no disponible después de 10s');
+    console.log('Firebase no listo, reintentando...');
+    setTimeout(setupRealtimeSync, 1000);
     return;
   }
-  window._fbSyncPending = false;
-  var fbdb = window._fbDB;
-  try {
-    Promise.all([
-      fbdb.collection('techparts').doc('db').get(),
-      fbdb.collection('techparts').doc('banners').get()
-    ]).then(function(snaps) {
-      var changed = false;
-      if (snaps[0].exists) {
+  if (_realtimeUnsubscribe) _realtimeUnsubscribe();
+  console.log('Configurando escucha en tiempo real de Firestore...');
+  const dbRef = window._fbDB.collection('techparts').doc('db');
+  _realtimeUnsubscribe = dbRef.onSnapshot({
+    next: (snapshot) => {
+      if (snapshot.exists) {
         try {
-          var d = JSON.parse(snaps[0].data().v);
-          // Guardar usuarios de localStorage ANTES de reemplazar (pueden tener registros más recientes)
-          var localUsers = DB.users ? DB.users.slice() : [];
-          var localCurrentUser = currentUser;
-          // Reemplazar con datos de Firebase
-          DB = d;
+          const remoteData = JSON.parse(snapshot.data().v);
+          console.log('📡 Cambios detectados en Firebase, sincronizando...');
+          const localUsers = DB.users || [];
+          const remoteUsers = remoteData.users || [];
+          const mergedUsers = [...remoteUsers];
+          localUsers.forEach(localUser => {
+            const existsInRemote = remoteUsers.some(ru => ru.email === localUser.email);
+            if (!existsInRemote && localUser.email) {
+              console.log(`➕ Agregando usuario local no sincronizado: ${localUser.email}`);
+              mergedUsers.push(localUser);
+            }
+          });
+          const localOrders = DB.orders || [];
+          const remoteOrders = remoteData.orders || [];
+          const mergedOrders = [...remoteOrders];
+          localOrders.forEach(localOrder => {
+            const existsInRemote = remoteOrders.some(ro => ro.id === localOrder.id);
+            if (!existsInRemote) {
+              console.log(`➕ Agregando pedido local no sincronizado: ${localOrder.id}`);
+              mergedOrders.push(localOrder);
+            }
+          });
+          DB = {
+            ...remoteData,
+            users: mergedUsers,
+            orders: mergedOrders,
+            deliveredOrders: remoteData.deliveredOrders || [],
+            reviewedSales: remoteData.reviewedSales || [],
+            categories: remoteData.categories || DB.categories,
+            config: remoteData.config || DB.config
+          };
           _fixDB();
-          // Fusionar usuarios: Firebase como base, agregar cualquier usuario local que no esté en Firebase
-          // Esto evita que registros recientes se pierdan por race condition
-          if (localUsers.length > 0) {
-            localUsers.forEach(function(lu) {
-              var existsInFb = DB.users.find(function(fu) { return fu.email === lu.email; });
-              if (!existsInFb) {
-                DB.users.push(lu);
-                console.log('Fusionado usuario local a Firebase:', lu.email);
-              }
-            });
-          }
-          // Si había un usuario logueado, actualizarlo desde la BD fusionada
-          if (localCurrentUser) {
-            var updatedUser = DB.users.find(function(u) { return u.email === localCurrentUser.email; });
-            if (updatedUser) {
-              currentUser = updatedUser;
+          if (currentUser) {
+            const updatedCurrent = DB.users.find(u => u.email === currentUser.email);
+            if (updatedCurrent) {
+              currentUser = updatedCurrent;
               localStorage.setItem('techparts_user', JSON.stringify(currentUser));
-            } else {
-              // El usuario actual no está en Firebase ni en local tras fusión — no lo eliminar
-              currentUser = localCurrentUser;
+              updateAuthUI();
             }
           }
           localStorage.setItem('techparts_db', JSON.stringify(DB));
-          // Si hubo usuarios fusionados, guardar también en Firebase para que persistan
-          var fbUsers = d.users ? d.users.length : 0;
-          if (DB.users.length > fbUsers) {
-            fbdb.collection('techparts').doc('db').set({ v: JSON.stringify(DB) })
-              .then(function(){ console.log('Firebase actualizado con usuarios fusionados'); })
-              .catch(function(e){ console.warn('Error guardando fusión:', e); });
+          renderProducts();
+          renderInventoryTable();
+          renderStats();
+          renderAllOrders();
+          renderDeliveredList();
+          if (document.getElementById('clientsTableBody')) {
+            renderClientsTable(document.getElementById('clientsSearch')?.value || '');
           }
-          changed = true;
-        } catch(e) { console.warn('Error parseando Firebase DB:', e); }
+          renderHistoryList();
+          if (document.getElementById('tab-clients') && document.getElementById('tab-clients').classList.contains('active')) {
+            renderClientsTable(document.getElementById('clientsSearch')?.value || '');
+          }
+          console.log('✅ Sincronización en tiempo real completada');
+        } catch(e) { console.warn('Error procesando snapshot:', e); }
       }
-      if (snaps[1].exists) {
+    },
+    error: (err) => { console.warn('Error en snapshot de Firestore:', err); }
+  });
+  const bannersRef = window._fbDB.collection('techparts').doc('banners');
+  if (_realtimeBannersUnsubscribe) _realtimeBannersUnsubscribe();
+  _realtimeBannersUnsubscribe = bannersRef.onSnapshot({
+    next: (snapshot) => {
+      if (snapshot.exists) {
         try {
-          var b = JSON.parse(snaps[1].data().v);
-          if (b && b.slides) {
-            bannersConfig = b;
+          const remoteBanners = JSON.parse(snapshot.data().v);
+          if (remoteBanners && remoteBanners.slides) {
+            bannersConfig = remoteBanners;
             localStorage.setItem('techparts_banners', JSON.stringify(bannersConfig));
-            changed = true;
+            renderBanners();
+            console.log('📡 Banners sincronizados en tiempo real');
           }
         } catch(e) {}
       }
-      if (changed) {
-        applyStoredConfig();
-        renderProducts(); renderBanners(); renderInventoryTable();
-        renderStats(); renderAllOrders(); renderDeliveredList();
-        renderClientsTable(); renderHistoryList(); renderNewSaleNotification();
-        updateFooter(); updateHeaderLogo(); updateHeaderStoreName(); updateCartCount();
-        updateAuthUI();
-        console.log('✅ Firebase sincronizado');
-      } else if (window._seedPending) {
-        // Firebase no tenía datos — ahora sí insertar demo data y guardar
-        window._seedPending = false;
-        var demoUser = { name: 'Cliente Demo', email: 'cliente@demo.com', phone: '+5493510000000', address: 'Calle Demo 123', password: 'cliente123', role: 'user', createdAt: new Date().toISOString() };
-        var demoProducts = [
-          { id:'P001', name:'Pantalla LED 15.6" FHD IPS', description:'Pantalla de alta definición para notebooks', partNumber:'LP156WF6', brand:'HP', model:'Pavilion 15', componentType:'Interno', partSpecific:'Pantalla', images:['https://images.unsplash.com/photo-1593640408182-31c228b37ac2?w=400&h=400&fit=crop'], cost:45, margin:60, finalPrice:72, stock:8, badge:'Nuevo' },
-          { id:'P002', name:'Teclado HP Pavilion 15 Español', description:'Teclado retroiluminado', partNumber:'TPN-Q173', brand:'HP', model:'Pavilion 15', componentType:'Externo', partSpecific:'Teclado', images:['https://images.unsplash.com/photo-1541140532154-b024d705b90a?w=400&h=400&fit=crop'], cost:22, margin:50, finalPrice:33, stock:15, badge:'Nuevo' }
-        ];
-        DB.products = demoProducts;
-        DB.categories.models = { 'HP': ['Pavilion 15','Envy 13'], 'Dell': ['Inspiron 14'], 'Lenovo': ['ThinkPad T490'], 'Asus': ['ZenBook 14'], 'Samsung': ['Universal'] };
-        if (DB.users.length === 0) DB.users.push(demoUser);
-        if (DB.orders.length === 0) DB.orders.push({ id:'ORD-DEMO001', userId:'cliente@demo.com', userName:'Cliente Demo', address:'Calle Demo 123', phone:'+5493510000000', email:'cliente@demo.com', payment:'Efectivo', items:[{id:'P001',name:'Pantalla LED 15.6" FHD IPS',qty:1,price:72}], total:72, status:'Confirmado', date:new Date().toLocaleString() });
-        saveFullData();
-        renderProducts(); renderBanners(); renderInventoryTable();
-        renderStats(); renderAllOrders(); renderClientsTable();
-      }
-    }).catch(function(e) { console.warn('Firebase sync error:', e); });
-  } catch(e) {}
+    },
+    error: (err) => console.warn('Error en snapshot de banners:', err)
+  });
 }
 
-// ===== FUNCIONES PARA BANNERS =====
 function filterByBannerSearch() {
   if (bannersConfig.slides && bannersConfig.slides[currentBanner]) {
     const activeSlide = bannersConfig.slides[currentBanner];
@@ -1769,14 +1726,12 @@ function startBannerCarousel() {
   }, 5000);
 }
 
-// ===== FUNCIONES PARA COLORES DE TEXTO =====
 function applyTextColors() { const colors = DB.config.textColors; if (!colors) return; document.documentElement.style.setProperty('--text', colors.main); document.documentElement.style.setProperty('--text2', colors.secondary); document.documentElement.style.setProperty('--text3', colors.tertiary); document.documentElement.style.setProperty('--border', colors.border); document.documentElement.style.setProperty('--bg', colors.bg); document.documentElement.style.setProperty('--surface', colors.surface); document.documentElement.style.setProperty('--bg2', colors.surface); document.documentElement.style.setProperty('--bg3', colors.border + '40'); }
 function openTextColorModal() { const colors = DB.config.textColors; document.getElementById('textColorMain').value = colors.main || '#1A1A2E'; document.getElementById('textColorSec').value = colors.secondary || '#555'; document.getElementById('textColorTer').value = colors.tertiary || '#888'; document.getElementById('borderColor').value = colors.border || '#E0E0E0'; document.getElementById('bgColor').value = colors.bg || '#F5F5F5'; document.getElementById('surfaceColor').value = colors.surface || '#FFF'; openModal('textColorModal'); }
 function saveTextColors() { DB.config.textColors = { main: document.getElementById('textColorMain').value, secondary: document.getElementById('textColorSec').value, tertiary: document.getElementById('textColorTer').value, border: document.getElementById('borderColor').value, bg: document.getElementById('bgColor').value, surface: document.getElementById('surfaceColor').value }; applyTextColors(); saveFullData(); closeModal('textColorModal'); notify('✅ Colores actualizados'); }
 function resetTextColors() { DB.config.textColors = { main: '#1A1A2E', secondary: '#555', tertiary: '#888', border: '#E0E0E0', bg: '#F5F5F5', surface: '#FFF' }; applyTextColors(); saveFullData(); closeModal('textColorModal'); notify('🔄 Colores restaurados'); }
 function toggleAutoContrast() { DB.config.autoContrast = !DB.config.autoContrast; if (DB.config.autoContrast) { document.body.classList.add('high-contrast'); notify('🌓 Alto contraste activado'); } else { document.body.classList.remove('high-contrast'); notify('🌓 Alto contraste desactivado'); } saveFullData(); }
 
-// ===== FUNCIONES PARA FONDOS =====
 function openBgSelectorModal() { openModal('bgSelectorModal'); }
 function previewBgUrlRealtime() { const url = document.getElementById('bgUrlInput').value.trim(); const preview = document.getElementById('bgPreviewImage'); if (url && preview) { preview.src = url; preview.onerror = () => { preview.src = ''; notify('❌ Error al cargar la imagen desde la URL', 'error'); }; } }
 function setupFilePreview() { const fileInput = document.getElementById('bgFileInput'); if (fileInput && !fileInput.hasListener) { fileInput.hasListener = true; fileInput.addEventListener('change', function(e) { const file = e.target.files[0]; const preview = document.getElementById('bgFilePreview'); if (file && preview) { if (file.size > 5 * 1024 * 1024) { notify('⚠️ El archivo no debe superar los 5MB', 'error'); preview.src = ''; return; } const reader = new FileReader(); reader.onload = function(ev) { preview.src = ev.target.result; }; reader.readAsDataURL(file); } else if (preview) { preview.src = ''; } }); } }
@@ -1789,7 +1744,6 @@ function createBgSelectorModal() { if (document.getElementById('bgSelectorModal'
 function addBgSelectorButton() { const container = document.getElementById('bgSelectorButtonContainer'); if (!container) return; if (container.querySelector('button')) return; const btn = document.createElement('button'); btn.className = 'btn-primary'; btn.style.width = '100%'; btn.style.marginBottom = '20px'; btn.style.background = 'linear-gradient(135deg,#667eea,#764ba2)'; btn.innerHTML = '🖼️ Cambiar Fondo de Pantalla (URL o Archivo Local)'; btn.onclick = () => openBgSelectorModal(); container.appendChild(btn); }
 function applyStoredConfig() { const c = DB.config; if (c.theme && c.theme !== 'light') document.documentElement.setAttribute('data-theme', c.theme); else document.documentElement.removeAttribute('data-theme'); if (c.primaryColor) document.documentElement.style.setProperty('--primary', c.primaryColor); if (c.font) document.documentElement.style.setProperty('--font', `'${c.font}', sans-serif`); if (c.textColors) applyTextColors(); if (c.autoContrast) document.body.classList.add('high-contrast'); const fit = c.bgFitMode || 'cover'; if (c.bgType === 'url' && c.customBgUrl) { document.body.style.backgroundImage = `url('${c.customBgUrl}')`; document.body.style.backgroundSize = fit === 'cover' ? 'cover' : fit === 'contain' ? 'contain' : fit === 'repeat' ? 'auto' : '100% 100%'; document.body.style.backgroundRepeat = fit === 'repeat' ? 'repeat' : 'no-repeat'; document.body.style.backgroundAttachment = 'fixed'; } else if (c.bgType === 'file' && c.customBgFile) { document.body.style.backgroundImage = `url('${c.customBgFile}')`; document.body.style.backgroundSize = fit === 'cover' ? 'cover' : fit === 'contain' ? 'contain' : fit === 'repeat' ? 'auto' : '100% 100%'; document.body.style.backgroundRepeat = fit === 'repeat' ? 'repeat' : 'no-repeat'; document.body.style.backgroundAttachment = 'fixed'; } else if (c.bgType === 'preset' && c.customBg) { document.body.style.background = c.customBg; document.body.style.backgroundSize = fit === 'cover' ? 'cover' : fit === 'contain' ? 'contain' : fit === 'repeat' ? 'auto' : '100% 100%'; document.body.style.backgroundRepeat = fit === 'repeat' ? 'repeat' : 'no-repeat'; document.body.style.backgroundAttachment = 'fixed'; document.body.style.backgroundPosition = 'center center'; } else if (c.autoSeasonal) { const months = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']; const month = months[new Date().getMonth()]; if (seasonalBackgrounds[month]) document.body.style.background = seasonalBackgrounds[month].gradient; } else if (c.seasonalBg && seasonalBackgrounds[c.seasonalBg]) { document.body.style.background = seasonalBackgrounds[c.seasonalBg].gradient; } }
 
-// ===== FUNCIONES PARA SUBIR IMÁGENES DESDE DISCO LOCAL =====
 function fileToBase64(file) { return new Promise((resolve, reject) => { const reader = new FileReader(); reader.readAsDataURL(file); reader.onload = () => resolve(reader.result); reader.onerror = error => reject(error); }); }
 async function uploadLocalImage() { const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*'; input.multiple = true; input.onchange = async (e) => { const files = Array.from(e.target.files); if (files.length === 0) return; let addedCount = 0; for (const file of files) { if (file.size > 2 * 1024 * 1024) { notify(`⚠️ "${file.name}" excede 2MB, no se agregó`, 'error'); continue; } try { const base64 = await fileToBase64(file); photoUrls.push(base64); addedCount++; } catch(err) { console.error('Error al convertir imagen:', err); } } if (addedCount > 0) { renderPhotoList(); notify(`✅ ${addedCount} imagen(es) agregada(s)`, 'success'); } }; input.click(); }
 function addPhotoUrlManually() { const url = prompt('Ingresá la URL de la imagen (https://...):'); if (url && url.trim()) { photoUrls.push(url.trim()); renderPhotoList(); notify('✅ URL de imagen agregada', 'success'); } }
@@ -1797,12 +1751,8 @@ function renderPhotoList() { const list = document.getElementById('photoList'); 
 function updatePhotoPreview(input, i) { photoUrls[i] = input.value; const img = input.previousElementSibling; if (img) img.src = input.value || 'https://via.placeholder.com/50?text=Preview'; }
 function removePhoto(i) { photoUrls.splice(i, 1); renderPhotoList(); notify('🗑️ Imagen eliminada', 'info'); }
 
-// ===== DEMO DATA =====
 function seedDemoData() {
-  // Solo insertar demo si no hay productos NI en localStorage NI pendiente de Firebase
   if (DB.products.length > 0) return;
-  // Si Firebase está disponible, esperar a que responda antes de meter demo data
-  if (window._fbDB) { window._seedPending = true; return; }
   const demos = [
     { id:'P001', name:'Pantalla LED 15.6" FHD IPS', description:'Pantalla de alta definición para notebooks', partNumber:'LP156WF6', brand:'HP', model:'Pavilion 15', componentType:'Interno', partSpecific:'Pantalla', images:['https://images.unsplash.com/photo-1593640408182-31c228b37ac2?w=400&h=400&fit=crop'], cost:45, margin:60, finalPrice:72, stock:8, badge:'Nuevo' },
     { id:'P002', name:'Teclado HP Pavilion 15 Español', description:'Teclado retroiluminado', partNumber:'TPN-Q173', brand:'HP', model:'Pavilion 15', componentType:'Externo', partSpecific:'Teclado', images:['https://images.unsplash.com/photo-1541140532154-b024d705b90a?w=400&h=400&fit=crop'], cost:22, margin:50, finalPrice:33, stock:15, badge:'Nuevo' }
@@ -1810,7 +1760,7 @@ function seedDemoData() {
   DB.products = demos;
   DB.categories.models = { 'HP': ['Pavilion 15','Envy 13'], 'Dell': ['Inspiron 14'], 'Lenovo': ['ThinkPad T490'], 'Asus': ['ZenBook 14'], 'Samsung': ['Universal'] };
   if (DB.users.length === 0) {
-    DB.users.push({ name: 'Cliente Demo', email: 'cliente@demo.com', phone: '+5493510000000', address: 'Calle Demo 123', password: 'cliente123', role: 'user', createdAt: new Date().toISOString() });
+    DB.users.push({ name: 'Cliente Demo', email: 'cliente@demo.com', phone: '+5493510000000', address: 'Calle Demo 123', password: 'cliente123', role: 'user', createdAt: new Date().toISOString(), updatedAt: Date.now() });
   }
   if (DB.orders.length === 0) {
     DB.orders.push({ id: 'ORD-DEMO001', userId: 'cliente@demo.com', userName: 'Cliente Demo', address: 'Calle Demo 123', phone: '+5493510000000', email: 'cliente@demo.com', payment: 'Efectivo', items: [{ id: 'P001', name: 'Pantalla LED 15.6" FHD IPS', qty: 1, price: 72 }], total: 72, status: 'Confirmado', date: new Date().toLocaleString() });
@@ -1818,7 +1768,6 @@ function seedDemoData() {
   saveFullData();
 }
 
-// ===== FUNCIONES BÁSICAS =====
 function renderProducts() { const grid = document.getElementById('productsGrid'); if (!grid) return; let prods = DB.products.filter(p => p && p.stock > 0); if (searchQuery) { const q = searchQuery.toLowerCase(); prods = prods.filter(p => (p.name || '').toLowerCase().includes(q) || (p.brand || '').toLowerCase().includes(q) || (p.model || '').toLowerCase().includes(q) || (p.partNumber || '').toLowerCase().includes(q) || (p.partSpecific || '').toLowerCase().includes(q) || (p.description || '').toLowerCase().includes(q)); } if (currentFilter !== 'all') prods = prods.filter(p => p.badge === currentFilter); const sort = document.getElementById('sortSelect')?.value || 'featured'; if (sort === 'price_asc') prods.sort((a,b) => (a.finalPrice||0) - (b.finalPrice||0)); else if (sort === 'price_desc') prods.sort((a,b) => (b.finalPrice||0) - (a.finalPrice||0)); else if (sort === 'az') prods.sort((a,b) => (a.name||'').localeCompare(b.name||'')); else if (sort === 'za') prods.sort((a,b) => (b.name||'').localeCompare(a.name||'')); const countSpan = document.getElementById('resultsCount'); if (countSpan) countSpan.textContent = `${prods.length} producto${prods.length !== 1 ? 's' : ''}`; if (prods.length === 0) { grid.innerHTML = `<div class="no-products" style="grid-column:1/-1"><div class="icon">🔍</div><h3>Sin resultados</h3><p>${searchQuery ? 'No se encontraron productos para "' + escapeHtml(searchQuery) + '"' : 'No hay productos disponibles'}</p></div>`; return; } grid.innerHTML = prods.map(p => `<div class="product-card" onclick="openProduct('${p.id}')"><div class="card-img-wrap"><img src="${p.images && p.images[0] ? p.images[0] : 'https://via.placeholder.com/300'}" alt="${escapeHtml(p.name)}" onerror="this.src='https://via.placeholder.com/300'"><div class="card-badges">${p.badge ? `<span class="badge badge-${p.badge.toLowerCase()}">${p.badge}</span>` : ''}</div></div><div class="card-body"><div class="card-brand">${[p.brand, p.model].filter(Boolean).join(' • ')}</div><div class="card-name">${escapeHtml(p.name)}</div>${p.partNumber ? `<div class="card-part">P/N: ${p.partNumber}</div>` : ''}<div class="card-price"><span class="currency">$</span>${formatNum(p.finalPrice)}</div><div class="card-stock">${stockLabel(p.stock)}</div></div><div class="card-footer"><button class="btn-cart" onclick="event.stopPropagation();addToCart('${p.id}')">🛒 Agregar</button><button class="btn-share" onclick="event.stopPropagation();openShare('${p.id}')">📤</button></div></div>`).join(''); }
 function handleSearch(val) { searchQuery = val; renderProducts(); }
 function setFilter(val, el) { currentFilter = val; document.querySelectorAll('.filter-chips .chip').forEach(c => c.classList.remove('active')); if (el) el.classList.add('active'); renderProducts(); }
@@ -1835,18 +1784,15 @@ function openCheckout() { if (!currentUser) { closeModal('cartModal'); openModal
 function selectPayment(method, el) { document.querySelectorAll('.payment-opt').forEach(o => o.classList.remove('selected')); if (el) el.classList.add('selected'); window._selectedPayment = method; document.getElementById('paymentSelected').textContent = `Método: ${method}`; }
 function confirmOrder() { if (!window._selectedPayment) { notify('⚠️ Seleccione método de pago', 'error'); return; } const name = document.getElementById('chkName').value.trim(); const address = document.getElementById('chkAddress').value.trim(); if (!name || !address) { notify('⚠️ Complete nombre y dirección', 'error'); return; } const orderItems = []; for (const c of cart) { const p = DB.products.find(x => x.id === c.id); if (p) { p.stock -= c.qty; if (p.stock < 0) p.stock = 0; orderItems.push({ id: p.id, name: p.name, qty: c.qty, price: p.finalPrice }); } } const total = orderItems.reduce((s, i) => s + i.price * i.qty, 0); const orderId = 'ORD-' + Date.now().toString(36).toUpperCase(); const order = { id: orderId, userId: currentUser.email, userName: name, address: address, phone: document.getElementById('chkPhone').value, email: document.getElementById('chkEmail').value || currentUser.email, notes: document.getElementById('chkNotes').value, payment: window._selectedPayment, items: orderItems, total: total, status: 'Pendiente', date: new Date().toLocaleString() }; DB.orders.unshift(order); cart = []; saveFullData(); updateCartCount(); renderProducts(); document.getElementById('checkoutBody').innerHTML = `<div class="confirm-screen"><div class="confirm-icon">🎉</div><h2>¡Pedido confirmado!</h2><div class="order-code">${orderId}</div><button class="btn-primary" onclick="closeModal('checkoutModal')">← Volver</button></div>`; renderAllOrders(); renderHistoryList(); renderNewSaleNotification(); notify('🎉 ¡Pedido realizado!'); }
 
-// ===== PEDIDOS =====
 function renderAllOrders() { const list = document.getElementById('allOrdersList'); if (!list) return; const active = DB.orders.filter(o => o.status !== 'Entregado' && o.status !== 'Cancelado' && o.status !== 'Devuelto'); if (!active.length) { list.innerHTML = '<p style="text-align:center;padding:40px">📭 No hay pedidos pendientes</p>'; return; } list.innerHTML = active.map(o => renderOrderCard(o, true)).join(''); }
 function renderOrderCard(order, adminView) { const statusClass = { Pendiente: 'status-pendiente', Confirmado: 'status-confirmado', Entregado: 'status-entregado', Cancelado: 'status-cancelado', Devuelto: 'status-devuelto' }[order.status] || 'status-pendiente'; const client = DB.users.find(u => u.email === order.userId); const clientPhone = client?.phone || order.phone || ''; return `<div class="order-card" data-order-id="${order.id}"><div class="order-header"><div><div class="order-id">${order.id}</div><div style="font-size:0.82rem">${order.date} — ${escapeHtml(order.userName)}</div>${clientPhone ? `<div style="font-size:0.75rem">📱 ${escapeHtml(clientPhone)}</div>` : ''}</div><span class="order-status ${statusClass}">${order.status}</span></div><div class="order-items-summary">${order.items.map(i => `<span class="order-item-tag">${escapeHtml(i.name)} x${i.qty}</span>`).join('')}</div><div class="order-footer"><div>💳 ${order.payment}</div><div><span class="order-total">$${formatNum(order.total)}</span>${adminView ? `<div class="order-actions">${order.status === 'Pendiente' ? `<button class="tbl-btn tbl-edit" onclick="updateOrderStatus('${order.id}','Confirmado')">✅ Confirmar</button>` : ''}${order.status === 'Confirmado' ? `<button class="tbl-btn btn-success" onclick="markAsDelivered('${order.id}')">📦 Entregado</button>` : ''}${order.status !== 'Entregado' && order.status !== 'Cancelado' ? `<button class="tbl-btn btn-wa" onclick="sendOrderWhatsApp('${order.id}','status')">📱 Estado</button>` : ''}${order.status !== 'Cancelado' ? `<button class="tbl-btn tbl-del" onclick="updateOrderStatus('${order.id}','Cancelado')">❌ Cancelar</button>` : ''}</div>` : ''}</div></div></div>`; }
 function updateOrderStatus(orderId, status) { const order = DB.orders.find(o => o.id === orderId); if (!order) return; const prev = order.status; order.status = status; if (status !== 'Pendiente' && status !== 'Confirmado' && !DB.reviewedSales.includes(orderId)) DB.reviewedSales.push(orderId); if ((status === 'Cancelado' || status === 'Devuelto') && prev !== 'Cancelado' && prev !== 'Devuelto') { order.items.forEach(item => { const p = DB.products.find(x => x.id === item.id); if (p) p.stock += item.qty; }); renderProducts(); } saveFullData(); renderAllOrders(); renderStats(); renderDeliveredList(); renderHistoryList(); renderNewSaleNotification(); notify(`✅ Pedido ${orderId} → ${status}`); }
 function markAsDelivered(orderId) { const order = DB.orders.find(o => o.id === orderId); if (!order) return; const deliveryDate = new Date().toLocaleString(); const record = { id: 'DEL-' + Date.now(), orderId: order.id, orderDate: order.date, clientName: order.userName, clientPhone: order.phone || '', items: order.items.map(i => ({ ...i, brand: DB.products.find(p => p.id === i.id)?.brand || '' })), total: order.total, deliveryDate: deliveryDate, deliveryTimestamp: new Date().toISOString(), notes: '', status: 'Entregado' }; DB.deliveredOrders.unshift(record); if (record.clientPhone) { const storeName = DB.config.storeName; const itemsList = record.items.map(i => `• ${i.name} x${i.qty} - $${formatNum(i.price * i.qty)}`).join('\n'); const msg = `🟢 *PRODUCTO RETIRADO* ✅\n\n📦 Pedido: ${order.id}\n👤 Cliente: ${escapeHtml(record.clientName)}\n\nProductos:\n${itemsList}\n💰 Total: $${formatNum(order.total)}\n📅 Retiro: ${deliveryDate}\n\n⚠️ *POLÍTICA DE DEVOLUCIÓN:* Tiene 24 horas para devolución.\n\n¡Gracias por confiar en ${storeName}!`; window.open(`https://wa.me/${record.clientPhone.replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`,'_blank'); } order.status = 'Entregado'; if (!DB.reviewedSales.includes(order.id)) DB.reviewedSales.push(order.id); saveFullData(); renderAllOrders(); renderDeliveredList(); renderStats(); renderHistoryList(); renderNewSaleNotification(); notify(`✅ Pedido ${orderId} entregado. WhatsApp enviado.`); }
 function sendOrderWhatsApp(orderId,type){ const order=DB.orders.find(o=>o.id===orderId); if(!order)return; const phone=order.phone; if(!phone){ notify('⚠️ Sin teléfono','error'); return; } const storeName=DB.config.storeName; let msg=''; if(type==='confirm') msg=`🟢 *COMPRA APROBADA* ✅\n\nPedido: ${order.id}\nTotal: $${formatNum(order.total)}\n\nEn breve nos contactamos.\n¡Gracias por confiar en ${storeName}!`; else if(type==='status') msg=`ℹ️ Estado de tu pedido #${order.id}: *${order.status}*\nTotal: $${formatNum(order.total)}`; if(msg) window.open(`https://wa.me/${phone.replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`,'_blank'); }
 
-// ===== HISTORIAL =====
 function renderHistoryList() { const container = document.getElementById('historyOrdersList'); if (!container) return; let filtered = [...DB.orders]; if (historyStatusFilter !== 'all') filtered = filtered.filter(o => o.status === historyStatusFilter); const sort = document.getElementById('historySort')?.value || 'date_desc'; if (sort === 'date_desc') filtered.sort((a, b) => new Date(b.deliveryTimestamp || b.date) - new Date(a.deliveryTimestamp || a.date)); else if (sort === 'date_asc') filtered.sort((a, b) => new Date(a.deliveryTimestamp || a.date) - new Date(b.deliveryTimestamp || b.date)); else if (sort === 'total_desc') filtered.sort((a, b) => b.total - a.total); else if (sort === 'total_asc') filtered.sort((a, b) => a.total - b.total); if (!filtered.length) { container.innerHTML = '<p style="text-align:center;padding:40px">📭 Sin ventas</p>'; return; } container.innerHTML = filtered.map(o => renderOrderCard(o, true)).join(''); }
 function filterHistoryByStatus(status, el) { historyStatusFilter = status; document.querySelectorAll('.history-status-filter').forEach(btn => btn.classList.remove('active')); if (el) el.classList.add('active'); renderHistoryList(); }
 
-// ===== RETIRADOS =====
 function renderDeliveredList() { const container = document.getElementById('deliveredListContainer'); if (!container) return; let list = [...DB.deliveredOrders]; const search = document.getElementById('deliveredSearch')?.value; if (search) { const q = search.toLowerCase(); list = list.filter(d => d.orderId.toLowerCase().includes(q) || d.clientName.toLowerCase().includes(q) || d.items.some(i => i.name.toLowerCase().includes(q))); } if (!list.length) { container.innerHTML = '<p style="text-align:center;padding:40px">📭 Sin registros</p>'; return; } container.innerHTML = list.map((del, idx) => `<div class="delivered-card"><div class="delivered-header"><div><div class="delivered-id">Pedido: ${del.orderId}</div><div style="font-size:0.75rem">${del.orderDate}</div></div><div class="delivered-date">📅 ${del.deliveryDate}</div></div><div><strong>${escapeHtml(del.clientName)}</strong>${del.clientPhone ? `<span style="margin-left:10px">📱 ${escapeHtml(del.clientPhone)}</span>` : ''}</div><div class="delivered-items">${del.items.map(i => `<div class="delivered-item">${escapeHtml(i.name)} x${i.qty} - $${formatNum(i.price * i.qty)}</div>`).join('')}</div><div><strong>Total: $${formatNum(del.total)}</strong></div><div class="delivered-actions"><button class="tbl-btn tbl-edit" onclick="editDeliveredRecord(${idx})">✏️</button><button class="tbl-btn btn-wa" onclick="resendDeliveryWhatsApp(${idx})">📱 WA</button><button class="tbl-btn tbl-del" onclick="deleteDeliveredRecord(${idx})">🗑️</button><button class="tbl-btn" style="background:var(--badge-esp);color:#fff" onclick="openReturnModal('${del.orderId}',${idx})">🔄 Devolución</button></div>${del.notes ? `<div style="margin-top:8px;padding:8px;background:var(--bg3);border-radius:var(--radius-sm);font-size:0.75rem">📝 ${escapeHtml(del.notes)}</div>` : ''}</div>`).join(''); }
 function filterDeliveredList(query) { deliveredFilterQuery = query; renderDeliveredList(); }
 function editDeliveredRecord(idx) { const del = DB.deliveredOrders[idx]; if (!del) return; document.getElementById('editDeliveryIndex').value = idx; const date = new Date(del.deliveryTimestamp).toISOString().slice(0,16); document.getElementById('editDeliveryDate').value = date; document.getElementById('editDeliveryNotes').value = del.notes || ''; openModal('editDeliveryModal'); }
@@ -1857,14 +1803,12 @@ function processReturn() { const orderId = document.getElementById('returnOrderI
 function resendDeliveryWhatsApp(idx) { const del = DB.deliveredOrders[idx]; if (!del || !del.clientPhone) { notify('⚠️ Sin teléfono','error'); return; } const storeName = DB.config.storeName; const itemsList = del.items.map(i => `• ${i.name} x${i.qty} - $${formatNum(i.price * i.qty)}`).join('\n'); const msg = `🟢 *PRODUCTO RETIRADO* ✅\n\n📦 Pedido: ${del.orderId}\n👤 Cliente: ${escapeHtml(del.clientName)}\n\nProductos:\n${itemsList}\n💰 Total: $${formatNum(del.total)}\n📅 Retiro: ${del.deliveryDate}\n\n⚠️ *POLÍTICA DE DEVOLUCIÓN:* 24 horas.\n\n¡Gracias por confiar en ${storeName}!`; window.open(`https://wa.me/${del.clientPhone.replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`,'_blank'); notify('📱 Mensaje reenviado'); }
 function exportDeliveredList() { const data = JSON.stringify(DB.deliveredOrders,null,2); const blob = new Blob([data],{type:'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `retirados_${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.json`; a.click(); URL.revokeObjectURL(a.href); notify('✅ Exportado'); }
 
-// ===== CLIENTES =====
-function renderClientsTable(query = '') { const tbody = document.getElementById('clientsTableBody'); if (!tbody) return; let clients = [...DB.users]; if (query) { const q = query.toLowerCase(); clients = clients.filter(c => c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q) || (c.phone || '').includes(q)); } if (!clients.length) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center">Sin clientes</span></tr>'; return; } tbody.innerHTML = clients.map(c => `<tr><td><strong>${escapeHtml(c.name)}</strong></td><td>${escapeHtml(c.email)}</span><td>${c.phone || '—'}</span><td>${c.address || '—'}</span><td><span class="badge" style="background:${c.role === 'admin' ? '#8B5CF6' : '#10B981'}">${c.role === 'admin' ? 'Admin' : 'Cliente'}</span></span><td><div class="tbl-actions"><button class="tbl-btn tbl-edit" onclick="openEditClientModal('${c.email}')">✏️</button><button class="tbl-btn tbl-del" onclick="deleteClientByAdmin('${c.email}')">🗑️</button><button class="tbl-btn btn-wa" onclick="sendWhatsAppToClient('${c.phone}', '${escapeHtml(c.name)}')">📱</button></div></span></tr>`).join(''); }
+function renderClientsTable(query = '') { const tbody = document.getElementById('clientsTableBody'); if (!tbody) return; let clients = [...DB.users]; if (query) { const q = query.toLowerCase(); clients = clients.filter(c => c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q) || (c.phone || '').includes(q)); } if (!clients.length) { tbody.innerHTML = '<tr><td colspan="6" style="text-align:center">Sin clientes</span></td>'; return; } tbody.innerHTML = clients.map(c => `<tr><td><strong>${escapeHtml(c.name)}</strong></td><td>${escapeHtml(c.email)}</td><td>${c.phone || '—'}</td><td>${c.address || '—'}</td><td><span class="badge" style="background:${c.role === 'admin' ? '#8B5CF6' : '#10B981'}">${c.role === 'admin' ? 'Admin' : 'Cliente'}</span></td><td><div class="tbl-actions"><button class="tbl-btn tbl-edit" onclick="openEditClientModal('${c.email}')">✏️</button><button class="tbl-btn tbl-del" onclick="deleteClientByAdmin('${c.email}')">🗑️</button><button class="tbl-btn btn-wa" onclick="sendWhatsAppToClient('${c.phone}', '${escapeHtml(c.name)}')">📱</button></div></span></tr>`).join(''); }
 function openEditClientModal(email) { const client = DB.users.find(u => u.email === email); if (!client) return; const modalHTML = `<div class="modal-overlay" id="clientEditModal"><div class="modal-box"><div class="modal-header"><h2>✏️ Editar Cliente</h2><button class="modal-close" onclick="closeModal('clientEditModal')">✕</button></div><div class="modal-body"><input type="hidden" id="clientEditEmail" value="${escapeHtml(client.email)}"><div class="form-group"><label>Nombre</label><input type="text" id="clientEditName" value="${escapeHtml(client.name)}"></div><div class="form-group"><label>Teléfono</label><input type="tel" id="clientEditPhone" value="${escapeHtml(client.phone||'')}"></div><div class="form-group"><label>Dirección</label><input type="text" id="clientEditAddress" value="${escapeHtml(client.address||'')}"></div><div class="form-group"><label>Contraseña</label><input type="password" id="clientEditPassword" placeholder="Dejar vacío para no cambiar"></div><div class="form-group"><label>Rol</label><select id="clientEditRole"><option value="user" ${client.role !== 'admin' ? 'selected' : ''}>Cliente</option><option value="admin" ${client.role === 'admin' ? 'selected' : ''}>Admin</option></select></div><button class="btn-primary" onclick="saveClientFromAdmin()">Guardar</button><button class="btn-secondary" onclick="closeModal('clientEditModal')">Cancelar</button></div></div></div>`; document.body.insertAdjacentHTML('beforeend', modalHTML); document.getElementById('clientEditModal').classList.add('open'); }
-function saveClientFromAdmin() { const email = document.getElementById('clientEditEmail').value; const name = document.getElementById('clientEditName').value.trim(); const phone = document.getElementById('clientEditPhone').value.trim(); const address = document.getElementById('clientEditAddress').value.trim(); const pass = document.getElementById('clientEditPassword').value; const role = document.getElementById('clientEditRole').value; if (!name) { notify('⚠️ Nombre requerido','error'); return; } const idx = DB.users.findIndex(u => u.email === email); if (idx !== -1) { DB.users[idx].name = name; DB.users[idx].phone = phone; DB.users[idx].address = address; DB.users[idx].role = role; if (pass.length >= 6) DB.users[idx].password = pass; if (currentUser && currentUser.email === email) { currentUser = DB.users[idx]; updateAuthUI(); } saveFullData(); renderClientsTable(); closeModal('clientEditModal'); notify('✅ Cliente actualizado'); } }
+function saveClientFromAdmin() { const email = document.getElementById('clientEditEmail').value; const name = document.getElementById('clientEditName').value.trim(); const phone = document.getElementById('clientEditPhone').value.trim(); const address = document.getElementById('clientEditAddress').value.trim(); const pass = document.getElementById('clientEditPassword').value; const role = document.getElementById('clientEditRole').value; if (!name) { notify('⚠️ Nombre requerido','error'); return; } const idx = DB.users.findIndex(u => u.email === email); if (idx !== -1) { DB.users[idx].name = name; DB.users[idx].phone = phone; DB.users[idx].address = address; DB.users[idx].role = role; DB.users[idx].updatedAt = Date.now(); if (pass.length >= 6) DB.users[idx].password = pass; if (currentUser && currentUser.email === email) { currentUser = DB.users[idx]; updateAuthUI(); } saveFullData(); renderClientsTable(); closeModal('clientEditModal'); notify('✅ Cliente actualizado'); } }
 function deleteClientByAdmin(email) { if (email === 'admin') { notify('⚠️ No se puede eliminar admin principal','error'); return; } if (confirm('¿Eliminar cliente?')) { DB.users = DB.users.filter(u => u.email !== email); if (currentUser && currentUser.email === email) currentUser = null; saveFullData(); renderClientsTable(); updateAuthUI(); notify('🗑️ Cliente eliminado'); } }
 function sendWhatsAppToClient(phone, name) { if (!phone) { notify('⚠️ Sin teléfono','error'); return; } const msg = encodeURIComponent(`Hola ${name}, somos de ${DB.config.storeName || 'TechParts'}. ¿Cómo podemos ayudarte?`); window.open(`https://wa.me/${phone.replace(/\D/g,'')}?text=${msg}`,'_blank'); }
 
-// ===== INVENTARIO =====
 function renderInventoryTable(query = '') { const tbody = document.getElementById('invTbody'); if (!tbody) return; let prods = [...DB.products]; if (query) { const q = query.toLowerCase(); prods = prods.filter(p => p.name.toLowerCase().includes(q) || (p.partNumber || '').toLowerCase().includes(q)); } if (!prods.length) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center">Sin productos</span></tr>'; return; } tbody.innerHTML = prods.map(p => `<tr><td><img class="tbl-img" src="${p.images?.[0] || 'https://via.placeholder.com/44'}" onerror="this.src='https://via.placeholder.com/44'"></td><td><strong>${escapeHtml(p.name)}</strong></span><td>${p.partNumber || '—'}</span><td>${[p.brand, p.model, p.partSpecific].filter(Boolean).join(' › ')}</span><td>$${formatNum(p.finalPrice)}</span><td><span style="color:${p.stock === 0 ? 'red' : p.stock < 5 ? 'orange' : 'green'}">${p.stock}</span><div class="stock-bar"><div class="stock-fill" style="width:${Math.min(100, p.stock * 5)}%;background:${p.stock === 0 ? 'red' : p.stock < 5 ? 'orange' : 'green'}"></div></div></span><td>${p.badge ? `<span class="badge badge-${p.badge.toLowerCase()}">${p.badge}</span>` : '—'}</span><td><div class="tbl-actions"><button class="tbl-btn tbl-edit" onclick="openAddProduct('${p.id}')">✏️</button><button class="tbl-btn tbl-del" onclick="deleteProduct('${p.id}')">🗑️</button></div></span></tr>`).join(''); }
 function openAddProduct(id) { clearProductForm(); photoUrls = []; if (id) { const p = DB.products.find(x => x.id === id); if (!p) return; editingProductId = id; document.getElementById('formTitle').textContent = '✏️ Editar Producto'; document.getElementById('editingId').value = id; document.getElementById('pName').value = p.name || ''; document.getElementById('pPart').value = p.partNumber || ''; document.getElementById('pDescription').value = p.description || ''; document.getElementById('pCost').value = p.cost || ''; document.getElementById('pMargin').value = p.margin || ''; document.getElementById('pFinal').value = p.finalPrice; document.getElementById('pStock').value = p.stock; photoUrls = [...(p.images || [])]; selectedBadge = p.badge || ''; document.querySelectorAll('.badge-opt').forEach(b => b.classList.toggle('active', b.dataset.val === selectedBadge)); updateCatSelectors(); setTimeout(() => { if (document.getElementById('catBrand') && p.brand) document.getElementById('catBrand').value = p.brand; updateCatModel(); setTimeout(() => { if (document.getElementById('catModel') && p.model) document.getElementById('catModel').value = p.model; if (document.getElementById('catType') && p.componentType) document.getElementById('catType').value = p.componentType; updateCatParts(); if (document.getElementById('catPart') && p.partSpecific) document.getElementById('catPart').value = p.partSpecific; }, 50); }, 50); } else { editingProductId = null; document.getElementById('formTitle').textContent = '➕ Nuevo Producto'; document.getElementById('editingId').value = ''; updateCatSelectors(); } renderPhotoList(); calcFinalPrice(); }
 function clearProductForm() { editingProductId = null; document.getElementById('editingId').value = ''; document.getElementById('formTitle').textContent = '➕ Nuevo Producto'; document.getElementById('pName').value = ''; document.getElementById('pPart').value = ''; document.getElementById('pDescription').value = ''; document.getElementById('pCost').value = ''; document.getElementById('pMargin').value = ''; document.getElementById('pFinal').value = ''; document.getElementById('pStock').value = ''; photoUrls = []; selectedBadge = ''; document.querySelectorAll('.badge-opt').forEach(b => b.classList.remove('active')); renderPhotoList(); document.getElementById('priceCalcBox').style.display = 'none'; updateCatSelectors(); }
@@ -1909,7 +1853,7 @@ function showStore(){ document.getElementById('storeView').style.display='block'
 function switchAdminTab(tab,el){ document.querySelectorAll('.admin-tab').forEach(t=>t.classList.remove('active')); if(el)el.classList.add('active'); document.querySelectorAll('.admin-section').forEach(s=>s.classList.remove('active')); document.getElementById('tab-'+tab).classList.add('active'); if(tab==='inventory') renderInventoryTable(); if(tab==='delivered') renderDeliveredList(); if(tab==='clients') renderClientsTable(); if(tab==='history') renderHistoryList(); if(tab==='identity'){ loadIdentityForm(); renderLogoSelector(); } if(tab==='branding'){ renderSeasonalGrid(); if(!bgSelectorInitialized){ createBgSelectorModal(); bgSelectorInitialized=true; } addBgSelectorButton(); } if(tab==='dashboard'){ renderNewSaleNotification(); renderStats(); } }
 function openUserMenu(){ if(!currentUser)return; document.getElementById('userProfileInfo').innerHTML=`<strong>${escapeHtml(currentUser.name)}</strong><br>✉️ ${escapeHtml(currentUser.email)}<br>${currentUser.phone?`📱 ${escapeHtml(currentUser.phone)}<br>`:''}${currentUser.address?`📍 ${escapeHtml(currentUser.address)}`:''}<button class="btn-secondary" style="margin-top:12px" onclick="openEditProfileModal()">✏️ Editar perfil</button>`; const myOrders=DB.orders.filter(o=>o.userId===currentUser.email); document.getElementById('myOrdersList').innerHTML=myOrders.length?myOrders.map(o=>renderOrderCard(o,false)).join(''):'<p>Sin pedidos</p>'; openModal('userMenuModal'); }
 function openEditProfileModal(){ if(!currentUser)return; const html=`<div class="modal-overlay" id="editProfileModal"><div class="modal-box"><div class="modal-header"><h2>✏️ Editar Perfil</h2><button class="modal-close" onclick="closeModal('editProfileModal')">✕</button></div><div class="modal-body"><div class="form-group"><label>Nombre</label><input type="text" id="editProfileName" value="${escapeHtml(currentUser.name)}"></div><div class="form-group"><label>Teléfono</label><input type="tel" id="editProfilePhone" value="${escapeHtml(currentUser.phone||'')}"></div><div class="form-group"><label>Dirección</label><input type="text" id="editProfileAddress" value="${escapeHtml(currentUser.address||'')}"></div><div class="form-group"><label>Nueva contraseña</label><input type="password" id="editProfilePassword" placeholder="Dejar vacío para no cambiar"></div><button class="btn-primary" onclick="saveProfileChanges()">Guardar</button><button class="btn-secondary" onclick="closeModal('editProfileModal')">Cancelar</button></div></div></div>`; document.body.insertAdjacentHTML('beforeend',html); document.getElementById('editProfileModal').classList.add('open'); }
-function saveProfileChanges(){ if(!currentUser)return; const newName=document.getElementById('editProfileName').value.trim(); const newPhone=document.getElementById('editProfilePhone').value.trim(); const newAddress=document.getElementById('editProfileAddress').value.trim(); const newPass=document.getElementById('editProfilePassword').value; if(!newName){ notify('⚠️ Nombre requerido','error'); return; } const idx=DB.users.findIndex(u=>u.email===currentUser.email); if(idx!==-1){ DB.users[idx].name=newName; DB.users[idx].phone=newPhone; DB.users[idx].address=newAddress; if(newPass.length>=6) DB.users[idx].password=newPass; } currentUser.name=newName; currentUser.phone=newPhone; currentUser.address=newAddress; if(newPass.length>=6) currentUser.password=newPass; saveFullData(); updateAuthUI(); closeModal('editProfileModal'); notify('✅ Perfil actualizado'); }
+function saveProfileChanges(){ if(!currentUser)return; const newName=document.getElementById('editProfileName').value.trim(); const newPhone=document.getElementById('editProfilePhone').value.trim(); const newAddress=document.getElementById('editProfileAddress').value.trim(); const newPass=document.getElementById('editProfilePassword').value; if(!newName){ notify('⚠️ Nombre requerido','error'); return; } const idx=DB.users.findIndex(u=>u.email===currentUser.email); if(idx!==-1){ DB.users[idx].name=newName; DB.users[idx].phone=newPhone; DB.users[idx].address=newAddress; DB.users[idx].updatedAt=Date.now(); if(newPass.length>=6) DB.users[idx].password=newPass; } currentUser.name=newName; currentUser.phone=newPhone; currentUser.address=newAddress; if(newPass.length>=6) currentUser.password=newPass; saveFullData(); updateAuthUI(); closeModal('editProfileModal'); notify('✅ Perfil actualizado'); }
 (function init(){
   loadFullData();
   seedDemoData();
@@ -1919,16 +1863,13 @@ function saveProfileChanges(){ if(!currentUser)return; const newName=document.ge
   renderNewSaleNotification(); renderLogoSelector(); renderSeasonalGrid();
   renderBanners(); updateFooter(); updateHeaderLogo(); updateHeaderStoreName(); updateCartCount();
   document.getElementById('footerYear').textContent = new Date().getFullYear();
-  // Ocultar pantalla de carga SIEMPRE — sin importar Firebase
   var pl = document.getElementById('pageLoading');
   if (pl) { pl.style.opacity='0'; setTimeout(function(){ pl.style.display='none'; }, 500); }
   if (!bgSelectorInitialized) { createBgSelectorModal(); bgSelectorInitialized=true; }
   addBgSelectorButton();
-  // Sincronizar Firebase después de que la app ya está visible
-  setTimeout(_syncFirebase, 2000);
+  setTimeout(setupRealtimeSync, 2000);
 })();
 setInterval(function(){ saveFullData(); }, 30000);
 </script>
-
 </body>
 </html>
