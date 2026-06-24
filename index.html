@@ -975,6 +975,9 @@ footer {
   <div class="main-wrap">
     <div class="banner-carousel" id="bannerCarousel" onclick="filterByBannerSearch()"></div>
 
+    <!-- Contenedor para filtros rápidos (se genera dinámicamente) -->
+    <div id="quickFiltersContainer" style="display:flex; flex-wrap:wrap; gap:8px; margin:12px 0 16px;"></div>
+
     <div class="toolbar">
       <span class="toolbar-label">Ordenar por:</span>
       <select class="sort-select" id="sortSelect" onchange="renderProducts()">
@@ -1032,6 +1035,7 @@ footer {
       <button class="admin-tab" onclick="switchAdminTab('history',this)">📜 Historial Ventas</button>
       <button class="admin-tab" onclick="switchAdminTab('delivered',this)">✅ Retirados</button>
       <button class="admin-tab" onclick="switchAdminTab('clients',this)">👥 Clientes</button>
+      <button class="admin-tab" onclick="switchAdminTab('filters',this)">🏷️ Filtros</button>
       <button class="admin-tab" onclick="switchAdminTab('branding',this)">🎨 Estética</button>
       <button class="admin-tab" onclick="switchAdminTab('identity',this)">🏢 Identidad</button>
     </div>
@@ -1092,6 +1096,16 @@ footer {
     <div class="admin-section" id="tab-delivered"><h3 style="margin-bottom:20px;font-size:1.05rem;font-weight:700">✅ Productos Retirados / Entregados</h3><div class="inv-toolbar"><input type="text" id="deliveredSearch" placeholder="Buscar por pedido, cliente o producto..." oninput="filterDeliveredList(this.value)"><button class="tbl-btn tbl-edit" onclick="exportDeliveredList()">📥 Exportar Lista</button></div><div id="deliveredListContainer" class="delivered-products-list"></div></div>
 
     <div class="admin-section" id="tab-clients"><h3 style="margin-bottom:20px;font-size:1.05rem;font-weight:700">👥 Base de Datos de Clientes</h3><div class="inv-toolbar"><input type="text" id="clientsSearch" placeholder="Buscar por nombre, email o teléfono..." oninput="renderClientsTable(this.value)"></div><div class="inv-table-wrap"><table class="inv-table"><thead><tr><th>Nombre</th><th>Email</th><th>Teléfono</th><th>Dirección</th><th>Rol</th><th>Acciones</th></tr></thead><tbody id="clientsTableBody"></tbody></table></div></div>
+
+    <div class="admin-section" id="tab-filters">
+      <h3 style="margin-bottom:20px;font-size:1.05rem;font-weight:700">🏷️ Gestión de Filtros Rápidos</h3>
+      <div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap">
+        <input type="text" id="newFilterInput" placeholder="Nombre del filtro (ej. Pantalla)" style="flex:1;padding:10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg2);color:var(--text);min-width:200px">
+        <button class="btn-primary" onclick="addFilter()" style="width:auto;padding:10px 20px">➕ Agregar</button>
+        <button class="btn-secondary" onclick="resetFiltersToDefault()" style="width:auto;padding:10px 20px">🔄 Restaurar</button>
+      </div>
+      <div id="filtersList" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:10px"></div>
+    </div>
 
     <div class="admin-section" id="tab-branding">
       <div id="bgSelectorButtonContainer" style="margin-bottom:20px"></div>
@@ -1221,7 +1235,8 @@ let DB = {
     autoSeasonal: false,
     seasonalBg: null,
     textColors: { main: '#1A1A2E', secondary: '#555', tertiary: '#888', border: '#E0E0E0', bg: '#F5F5F5', surface: '#FFF' },
-    autoContrast: false
+    autoContrast: false,
+    quickFilters: ['Todos', 'Pantalla', 'Teclado', 'Batería', 'Cargador', 'Placa Madre', 'Memoria RAM', 'Disco SSD', 'Procesador']
   }
 };
 
@@ -1296,6 +1311,13 @@ function _fixDB() {
   if (DB.config.autoContrast === undefined) DB.config.autoContrast = false;
   if (!DB.config.bgType) DB.config.bgType = 'default';
   if (!DB.config.bgFitMode) DB.config.bgFitMode = 'cover';
+  if (!DB.config.quickFilters || !Array.isArray(DB.config.quickFilters)) {
+    DB.config.quickFilters = ['Todos', 'Pantalla', 'Teclado', 'Batería', 'Cargador', 'Placa Madre', 'Memoria RAM', 'Disco SSD', 'Procesador'];
+  }
+  // Asegurar que 'Todos' esté al inicio
+  if (DB.config.quickFilters[0] !== 'Todos') {
+    DB.config.quickFilters = ['Todos', ...DB.config.quickFilters.filter(f => f !== 'Todos')];
+  }
 }
 
 function setupRealtimeSync() {
@@ -1323,6 +1345,8 @@ function setupRealtimeSync() {
           _fixDB();
           if (currentUser) { const updated = DB.users.find(u => u.email === currentUser.email); if (updated) { currentUser = updated; updateAuthUI(); } }
           renderProducts(); renderInventoryTable(); renderStats(); renderAllOrders(); renderDeliveredList(); renderClientsTable(); renderHistoryList();
+          renderFiltersAdmin(); // Actualizar lista de filtros en admin
+          createQuickFilters(); // Regenerar botones en tienda
         } catch(e) { console.warn(e); }
       }
     },
@@ -1372,6 +1396,133 @@ function resizeImage(file, maxWidth = 800, maxHeight = 800, quality = 0.7) {
       reject(error);
     };
   });
+}
+
+// ==================== FILTROS RÁPIDOS (TIENDA) ====================
+function createQuickFilters() {
+  const container = document.getElementById('quickFiltersContainer');
+  if (!container) return;
+  const filters = DB.config.quickFilters || ['Todos', 'Pantalla', 'Teclado', 'Batería', 'Cargador', 'Placa Madre', 'Memoria RAM', 'Disco SSD', 'Procesador'];
+  container.innerHTML = filters.map(f => {
+    const isActive = (searchQuery && f !== 'Todos' && searchQuery.toLowerCase() === f.toLowerCase()) ||
+                     (f === 'Todos' && !searchQuery);
+    return `<button class="chip ${isActive ? 'active' : ''}" data-filter="${f}" onclick="applyQuickFilter('${f}')">${f}</button>`;
+  }).join('');
+}
+
+function applyQuickFilter(filter) {
+  const searchInput = document.getElementById('searchInput');
+  if (filter === 'Todos') {
+    searchInput.value = '';
+    handleSearch('');
+  } else {
+    searchInput.value = filter;
+    handleSearch(filter);
+  }
+  updateQuickFilterButtons();
+}
+
+function updateQuickFilterButtons() {
+  const btns = document.querySelectorAll('#quickFiltersContainer .chip');
+  btns.forEach(btn => {
+    const filter = btn.dataset.filter;
+    if (filter === 'Todos') {
+      btn.classList.toggle('active', !searchQuery);
+    } else {
+      btn.classList.toggle('active', searchQuery && searchQuery.toLowerCase() === filter.toLowerCase());
+    }
+  });
+}
+
+// ==================== ADMIN: GESTIÓN DE FILTROS ====================
+function renderFiltersAdmin() {
+  const container = document.getElementById('filtersList');
+  if (!container) return;
+  const filters = DB.config.quickFilters || [];
+  container.innerHTML = filters.map((f, idx) => {
+    // Si es 'Todos', no permitir eliminar ni editar (si se quiere, se puede, pero mejor mantenerlo)
+    const isTodos = f === 'Todos';
+    return `<div style="display:flex;align-items:center;gap:8px;background:var(--surface2);padding:6px 12px;border-radius:20px;border:1px solid var(--border)">
+      <span style="font-weight:500">${escapeHtml(f)}</span>
+      ${!isTodos ? `
+        <button class="tbl-btn tbl-edit" onclick="editFilter(${idx})" style="padding:2px 8px;font-size:0.7rem">✏️</button>
+        <button class="tbl-btn tbl-del" onclick="deleteFilter(${idx})" style="padding:2px 8px;font-size:0.7rem">🗑️</button>
+      ` : `<span style="font-size:0.7rem;color:var(--text3)">(fijo)</span>`}
+    </div>`;
+  }).join('');
+}
+
+function addFilter() {
+  if (currentUser?.role !== 'admin') { notify('⛔ Solo administradores', 'error'); return; }
+  const input = document.getElementById('newFilterInput');
+  const name = input.value.trim();
+  if (!name) { notify('⚠️ Ingresá un nombre', 'error'); return; }
+  if (DB.config.quickFilters.some(f => f.toLowerCase() === name.toLowerCase())) {
+    notify('⚠️ Ese filtro ya existe', 'error');
+    return;
+  }
+  // Insertar antes del último (antes de "Todos" si existe)
+  const filters = DB.config.quickFilters;
+  const todosIndex = filters.indexOf('Todos');
+  if (todosIndex !== -1) {
+    filters.splice(todosIndex, 0, name);
+  } else {
+    filters.push(name);
+  }
+  DB.config.quickFilters = filters;
+  saveFullData();
+  input.value = '';
+  renderFiltersAdmin();
+  createQuickFilters();
+  notify(`✅ Filtro "${name}" agregado`);
+}
+
+function editFilter(index) {
+  if (currentUser?.role !== 'admin') { notify('⛔ Solo administradores', 'error'); return; }
+  const filters = DB.config.quickFilters;
+  if (index < 0 || index >= filters.length) return;
+  const oldName = filters[index];
+  if (oldName === 'Todos') { notify('⚠️ No se puede editar "Todos"', 'error'); return; }
+  const newName = prompt('Editar nombre del filtro:', oldName);
+  if (newName === null) return;
+  const trimmed = newName.trim();
+  if (!trimmed) { notify('⚠️ Nombre vacío', 'error'); return; }
+  if (trimmed !== oldName && filters.some(f => f.toLowerCase() === trimmed.toLowerCase())) {
+    notify('⚠️ Ya existe un filtro con ese nombre', 'error');
+    return;
+  }
+  filters[index] = trimmed;
+  DB.config.quickFilters = filters;
+  saveFullData();
+  renderFiltersAdmin();
+  createQuickFilters();
+  notify(`✅ Filtro actualizado a "${trimmed}"`);
+}
+
+function deleteFilter(index) {
+  if (currentUser?.role !== 'admin') { notify('⛔ Solo administradores', 'error'); return; }
+  const filters = DB.config.quickFilters;
+  if (index < 0 || index >= filters.length) return;
+  if (filters[index] === 'Todos') { notify('⚠️ No se puede eliminar "Todos"', 'error'); return; }
+  if (confirm(`¿Eliminar el filtro "${filters[index]}"?`)) {
+    filters.splice(index, 1);
+    DB.config.quickFilters = filters;
+    saveFullData();
+    renderFiltersAdmin();
+    createQuickFilters();
+    notify('🗑️ Filtro eliminado');
+  }
+}
+
+function resetFiltersToDefault() {
+  if (currentUser?.role !== 'admin') { notify('⛔ Solo administradores', 'error'); return; }
+  if (confirm('¿Restaurar filtros predeterminados?')) {
+    DB.config.quickFilters = ['Todos', 'Pantalla', 'Teclado', 'Batería', 'Cargador', 'Placa Madre', 'Memoria RAM', 'Disco SSD', 'Procesador'];
+    saveFullData();
+    renderFiltersAdmin();
+    createQuickFilters();
+    notify('🔄 Filtros restaurados');
+  }
 }
 
 // ==================== CARGA EXCLUSIVA DESDE NUBE ====================
@@ -1443,6 +1594,8 @@ function loadDataFromCloud() {
     document.getElementById('footerYear').textContent = new Date().getFullYear();
     if (!bgSelectorInitialized) { createBgSelectorModal(); bgSelectorInitialized = true; }
     addBgSelectorButton();
+    renderFiltersAdmin();
+    createQuickFilters();
     setTimeout(setupRealtimeSync, 2000);
     const loading = document.getElementById('pageLoading');
     if (loading) { loading.style.opacity = '0'; setTimeout(function() { loading.style.display = 'none'; }, 500); }
@@ -1668,7 +1821,7 @@ function renderPhotoList() { const list = document.getElementById('photoList'); 
 function updatePhotoPreview(input, i) { photoUrls[i] = input.value; const img = input.previousElementSibling; if (img) img.src = input.value || 'https://via.placeholder.com/50?text=Preview'; }
 function removePhoto(i) { if (currentUser?.role !== 'admin') { notify('⛔ Solo el administrador puede eliminar imágenes', 'error'); return; } photoUrls.splice(i, 1); renderPhotoList(); notify('🗑️ Imagen eliminada', 'info'); }
 function renderProducts() { const grid = document.getElementById('productsGrid'); if (!grid) return; let prods = DB.products.filter(p => p && p.stock > 0); if (searchQuery) { const q = searchQuery.toLowerCase(); prods = prods.filter(p => (p.name || '').toLowerCase().includes(q) || (p.brand || '').toLowerCase().includes(q) || (p.model || '').toLowerCase().includes(q) || (p.partNumber || '').toLowerCase().includes(q) || (p.partSpecific || '').toLowerCase().includes(q) || (p.description || '').toLowerCase().includes(q)); } if (currentFilter !== 'all') prods = prods.filter(p => p.badge === currentFilter); const sort = document.getElementById('sortSelect')?.value || 'featured'; if (sort === 'price_asc') prods.sort((a,b) => (a.finalPrice||0) - (b.finalPrice||0)); else if (sort === 'price_desc') prods.sort((a,b) => (b.finalPrice||0) - (a.finalPrice||0)); else if (sort === 'az') prods.sort((a,b) => (a.name||'').localeCompare(b.name||'')); else if (sort === 'za') prods.sort((a,b) => (b.name||'').localeCompare(a.name||'')); const countSpan = document.getElementById('resultsCount'); if (countSpan) countSpan.textContent = `${prods.length} producto${prods.length !== 1 ? 's' : ''}`; if (prods.length === 0) { grid.innerHTML = `<div class="no-products" style="grid-column:1/-1"><div class="icon">🔍</div><h3>Sin resultados</h3><p>${searchQuery ? 'No se encontraron productos para "' + escapeHtml(searchQuery) + '"' : 'No hay productos disponibles'}</p></div>`; return; } grid.innerHTML = prods.map(p => `<div class="product-card" onclick="openProduct('${p.id}')"><div class="card-img-wrap"><img src="${p.images && p.images[0] ? p.images[0] : 'https://via.placeholder.com/300'}" alt="${escapeHtml(p.name)}" onerror="this.src='https://via.placeholder.com/300'"><div class="card-badges">${p.badge ? `<span class="badge badge-${p.badge.toLowerCase()}">${p.badge}</span>` : ''}</div></div><div class="card-body"><div class="card-brand">${[p.brand, p.model].filter(Boolean).join(' • ')}</div><div class="card-name">${escapeHtml(p.name)}</div>${p.partNumber ? `<div class="card-part">P/N: ${p.partNumber}</div>` : ''}<div class="card-price"><span class="currency">$</span>${formatNum(p.finalPrice)}</div><div class="card-stock">${stockLabel(p.stock)}</div></div><div class="card-footer"><button class="btn-cart" onclick="event.stopPropagation();addToCart('${p.id}')">🛒 Agregar</button><button class="btn-share" onclick="event.stopPropagation();openShare('${p.id}')">📤</button></div></div>`).join(''); }
-function handleSearch(val) { searchQuery = val; renderProducts(); }
+function handleSearch(val) { searchQuery = val; renderProducts(); updateQuickFilterButtons(); }
 function setFilter(val, el) { currentFilter = val; document.querySelectorAll('.filter-chips .chip').forEach(c => c.classList.remove('active')); if (el) el.classList.add('active'); renderProducts(); }
 function openProduct(id) { const p = DB.products.find(x => x.id === id); if (!p) return; document.getElementById('productModalTitle').textContent = p.name; const imgs = (p.images && p.images.length) ? p.images : ['https://via.placeholder.com/400']; document.getElementById('productDetailContent').innerHTML = `<div class="product-detail-grid"><div class="pd-gallery"><div class="pd-main-img"><img id="pdMainImg" src="${imgs[0]}" onerror="this.src='https://via.placeholder.com/400'"></div>${imgs.length > 1 ? `<div class="pd-thumbs">${imgs.map((img, i) => `<div class="pd-thumb ${i===0?'active':''}" onclick="switchPdImg('${img}',${i},this)"><img src="${img}" onerror="this.src='https://via.placeholder.com/60'"></div>`).join('')}</div>` : ''}</div><div class="pd-info"><div class="pd-brand">${[p.brand, p.model].filter(Boolean).join(' › ')}</div><h2 class="pd-name">${escapeHtml(p.name)}</h2>${p.partNumber ? `<div class="pd-part">P/N: ${p.partNumber}</div>` : ''}${p.badge ? `<span class="badge badge-${p.badge.toLowerCase()}">${p.badge}</span>` : ''}<div class="pd-price">$${formatNum(p.finalPrice)}</div><div class="pd-stock-info ${p.stock >= 10 ? 'pd-stock-ok' : 'pd-stock-low'}">${stockLabel(p.stock)}</div>${p.description ? `<div class="pd-description"><h4>📝 Descripción</h4><p>${escapeHtml(p.description)}</p></div>` : ''}<button class="btn-primary" onclick="addToCart('${p.id}');closeModal('productModal')">🛒 Agregar al carrito</button></div></div>`; openModal('productModal'); }
 function switchPdImg(src, idx, el) { document.getElementById('pdMainImg').src = src; document.querySelectorAll('.pd-thumb').forEach(t => t.classList.remove('active')); if (el) el.classList.add('active'); }
@@ -1738,13 +1891,13 @@ function closeModal(id){ const m=document.getElementById(id); if(m){ m.classList
 document.querySelectorAll('.modal-overlay').forEach(o=>{o.addEventListener('click',function(e){if(e.target===this)closeModal(this.id);});});
 function exportDB(){ const data=JSON.stringify(DB,null,2); const blob=new Blob([data],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='backup_tienda.json'; a.click(); URL.revokeObjectURL(a.href); notify('✅ Backup guardado'); }
 function triggerImport(){ document.getElementById('importFile').click(); }
-function importDB(e){ const file=e.target.files[0]; if(!file)return; const reader=new FileReader(); reader.onload=(ev)=>{ try{ const data=JSON.parse(ev.target.result); if(data.products!==undefined){ DB=data; if(!DB.deliveredOrders) DB.deliveredOrders=[]; if(!DB.reviewedSales) DB.reviewedSales=[]; saveFullData(); applyStoredConfig(); renderProducts(); renderInventoryTable(); renderStats(); renderAllOrders(); renderDeliveredList(); renderClientsTable(); renderHistoryList(); renderNewSaleNotification(); updateFooter(); updateHeaderLogo(); renderLogoSelector(); renderSeasonalGrid(); renderBanners(); notify('✅ Base cargada'); } else notify('❌ Archivo inválido','error'); } catch(err){ notify('❌ Error al leer','error'); } }; reader.readAsText(file); e.target.value=''; }
+function importDB(e){ const file=e.target.files[0]; if(!file)return; const reader=new FileReader(); reader.onload=(ev)=>{ try{ const data=JSON.parse(ev.target.result); if(data.products!==undefined){ DB=data; if(!DB.deliveredOrders) DB.deliveredOrders=[]; if(!DB.reviewedSales) DB.reviewedSales=[]; saveFullData(); applyStoredConfig(); renderProducts(); renderInventoryTable(); renderStats(); renderAllOrders(); renderDeliveredList(); renderClientsTable(); renderHistoryList(); renderNewSaleNotification(); updateFooter(); updateHeaderLogo(); renderLogoSelector(); renderSeasonalGrid(); renderBanners(); renderFiltersAdmin(); createQuickFilters(); notify('✅ Base cargada'); } else notify('❌ Archivo inválido','error'); } catch(err){ notify('❌ Error al leer','error'); } }; reader.readAsText(file); e.target.value=''; }
 function openShare(id){ const p=DB.products.find(x=>x.id===id); if(!p)return; document.getElementById('shareGrid').innerHTML=`<div class="share-item" onclick="shareProduct('${id}','whatsapp')"><div class="share-icon" style="background:#25D366">💬</div><span>WhatsApp</span></div><div class="share-item" onclick="shareProduct('${id}','facebook')"><div class="share-icon" style="background:#1877F2">👍</div><span>Facebook</span></div><div class="share-item" onclick="shareProduct('${id}','x')"><div class="share-icon" style="background:#000">𝕏</div><span>X</span></div>`; document.getElementById('sharePanel').classList.add('open'); }
 function closeSharePanel(){ document.getElementById('sharePanel').classList.remove('open'); }
 function shareProduct(id,platform){ const p=DB.products.find(x=>x.id===id); if(!p)return; const storeName=DB.config.storeName||'TechParts Store'; const msg=`🔧 ${p.name}\n💰 $${formatNum(p.finalPrice)}\n📍 ${storeName}`; const text=encodeURIComponent(msg); if(platform==='whatsapp') window.open(`https://wa.me/?text=${text}`,'_blank'); else if(platform==='facebook') window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}&quote=${text}`,'_blank'); else if(platform==='x') window.open(`https://twitter.com/intent/tweet?text=${text}`,'_blank'); closeSharePanel(); }
-function showAdmin(){ if(!currentUser||currentUser.role!=='admin'){ notify('⛔ Acceso denegado. Solo administradores.', 'error'); return; } document.getElementById('storeView').style.display='none'; document.getElementById('adminView').style.display='block'; renderInventoryTable(); renderStats(); renderAllOrders(); renderDeliveredList(); renderClientsTable(); renderHistoryList(); renderNewSaleNotification(); }
-function showStore(){ document.getElementById('storeView').style.display='block'; document.getElementById('adminView').style.display='none'; renderProducts(); renderBanners(); startBannerCarousel(); }
-function switchAdminTab(tab,el){ document.querySelectorAll('.admin-tab').forEach(t=>t.classList.remove('active')); if(el)el.classList.add('active'); document.querySelectorAll('.admin-section').forEach(s=>s.classList.remove('active')); document.getElementById('tab-'+tab).classList.add('active'); if(tab==='inventory') renderInventoryTable(); if(tab==='delivered') renderDeliveredList(); if(tab==='clients') renderClientsTable(); if(tab==='history') renderHistoryList(); if(tab==='identity'){ loadIdentityForm(); renderLogoSelector(); } if(tab==='branding'){ renderSeasonalGrid(); if(!bgSelectorInitialized){ createBgSelectorModal(); bgSelectorInitialized=true; } addBgSelectorButton(); } if(tab==='dashboard'){ renderNewSaleNotification(); renderStats(); } }
+function showAdmin(){ if(!currentUser||currentUser.role!=='admin'){ notify('⛔ Acceso denegado. Solo administradores.', 'error'); return; } document.getElementById('storeView').style.display='none'; document.getElementById('adminView').style.display='block'; renderInventoryTable(); renderStats(); renderAllOrders(); renderDeliveredList(); renderClientsTable(); renderHistoryList(); renderNewSaleNotification(); renderFiltersAdmin(); }
+function showStore(){ document.getElementById('storeView').style.display='block'; document.getElementById('adminView').style.display='none'; renderProducts(); renderBanners(); startBannerCarousel(); createQuickFilters(); }
+function switchAdminTab(tab,el){ document.querySelectorAll('.admin-tab').forEach(t=>t.classList.remove('active')); if(el)el.classList.add('active'); document.querySelectorAll('.admin-section').forEach(s=>s.classList.remove('active')); document.getElementById('tab-'+tab).classList.add('active'); if(tab==='inventory') renderInventoryTable(); if(tab==='delivered') renderDeliveredList(); if(tab==='clients') renderClientsTable(); if(tab==='history') renderHistoryList(); if(tab==='filters') renderFiltersAdmin(); if(tab==='identity'){ loadIdentityForm(); renderLogoSelector(); } if(tab==='branding'){ renderSeasonalGrid(); if(!bgSelectorInitialized){ createBgSelectorModal(); bgSelectorInitialized=true; } addBgSelectorButton(); } if(tab==='dashboard'){ renderNewSaleNotification(); renderStats(); } }
 function openUserMenu(){ if(!currentUser)return; document.getElementById('userProfileInfo').innerHTML=`<strong>${escapeHtml(currentUser.name)}</strong><br>✉️ ${escapeHtml(currentUser.email)}<br>${currentUser.phone?`📱 ${escapeHtml(currentUser.phone)}<br>`:''}${currentUser.address?`📍 ${escapeHtml(currentUser.address)}`:''}<button class="btn-secondary" style="margin-top:12px" onclick="openEditProfileModal()">✏️ Editar perfil</button>`; const myOrders=DB.orders.filter(o=>o.userId===currentUser.email); document.getElementById('myOrdersList').innerHTML=myOrders.length?myOrders.map(o=>renderOrderCard(o,false)).join(''):'<p>Sin pedidos</p>'; openModal('userMenuModal'); }
 function openEditProfileModal(){ if(!currentUser)return; const html=`<div class="modal-overlay" id="editProfileModal"><div class="modal-box"><div class="modal-header"><h2>✏️ Editar Perfil</h2><button class="modal-close" onclick="closeModal('editProfileModal')">✕</button></div><div class="modal-body"><div class="form-group"><label>Nombre</label><input type="text" id="editProfileName" value="${escapeHtml(currentUser.name)}"></div><div class="form-group"><label>Teléfono</label><input type="tel" id="editProfilePhone" value="${escapeHtml(currentUser.phone||'')}"></div><div class="form-group"><label>Dirección</label><input type="text" id="editProfileAddress" value="${escapeHtml(currentUser.address||'')}"></div><div class="form-group"><label>Nueva contraseña</label><input type="password" id="editProfilePassword" placeholder="Dejar vacío para no cambiar"></div><button class="btn-primary" onclick="saveProfileChanges()">Guardar</button><button class="btn-secondary" onclick="closeModal('editProfileModal')">Cancelar</button></div></div></div>`; document.body.insertAdjacentHTML('beforeend',html); document.getElementById('editProfileModal').classList.add('open'); }
 function saveProfileChanges(){ if(!currentUser)return; const newName=document.getElementById('editProfileName').value.trim(); const newPhone=document.getElementById('editProfilePhone').value.trim(); const newAddress=document.getElementById('editProfileAddress').value.trim(); const newPass=document.getElementById('editProfilePassword').value; if(!newName){ notify('⚠️ Nombre requerido','error'); return; } const idx=DB.users.findIndex(u=>u.email===currentUser.email); if(idx!==-1){ DB.users[idx].name=newName; DB.users[idx].phone=newPhone; DB.users[idx].address=newAddress; DB.users[idx].updatedAt=Date.now(); if(newPass.length>=6) DB.users[idx].password=newPass; } currentUser.name=newName; currentUser.phone=newPhone; currentUser.address=newAddress; if(newPass.length>=6) currentUser.password=newPass; saveFullData(); updateAuthUI(); closeModal('editProfileModal'); notify('✅ Perfil actualizado'); }
