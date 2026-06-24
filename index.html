@@ -1193,6 +1193,20 @@ footer {
     <div class="modal-body" id="bannerConfigBody"></div>
   </div>
 </div>
+
+<!-- Modal de Vista Previa del Producto (Admin) -->
+<div class="modal-overlay" id="adminPreviewModal">
+  <div class="modal-box wide">
+    <div class="modal-header">
+      <h2>👁️ Vista Previa del Producto</h2>
+      <button class="modal-close" onclick="closeModal('adminPreviewModal')">✕</button>
+    </div>
+    <div class="modal-body" id="adminPreviewBody">
+      <!-- Contenido generado por JavaScript -->
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="returnModal"><div class="modal-box"><div class="modal-header"><h2>🔄 Procesar Devolución</h2><button class="modal-close" onclick="closeModal('returnModal')">✕</button></div><div class="modal-body"><input type="hidden" id="returnOrderId"><div class="form-group"><label>Motivo</label><textarea id="returnReason" rows="3"></textarea></div><div class="form-group"><label>¿Restock?</label><select id="returnRestock"><option value="yes">✅ Sí</option><option value="no">❌ No</option></select></div><button class="btn-primary" onclick="processReturn()">Procesar</button><button class="btn-secondary" onclick="closeModal('returnModal')">Cancelar</button></div></div></div>
 <div class="modal-overlay" id="editDeliveryModal"><div class="modal-box"><div class="modal-header"><h2>✏️ Editar Entrega</h2><button class="modal-close" onclick="closeModal('editDeliveryModal')">✕</button></div><div class="modal-body"><input type="hidden" id="editDeliveryIndex"><div class="form-group"><label>Fecha</label><input type="datetime-local" id="editDeliveryDate"></div><div class="form-group"><label>Notas</label><textarea id="editDeliveryNotes" rows="3"></textarea></div><button class="btn-primary" onclick="saveDeliveryEdit()">Guardar</button><button class="btn-secondary" onclick="closeModal('editDeliveryModal')">Cancelar</button></div></div></div>
 <div class="modal-overlay" id="textColorModal"><div class="modal-box"><div class="modal-header"><h2>🎨 Colores</h2><button class="modal-close" onclick="closeModal('textColorModal')">✕</button></div><div class="modal-body"><div class="form-group"><label>Texto principal</label><input type="color" id="textColorMain"></div><div class="form-group"><label>Texto secundario</label><input type="color" id="textColorSec"></div><div class="form-group"><label>Texto terciario</label><input type="color" id="textColorTer"></div><div class="form-group"><label>Bordes</label><input type="color" id="borderColor"></div><div class="form-group"><label>Fondo</label><input type="color" id="bgColor"></div><div class="form-group"><label>Superficies</label><input type="color" id="surfaceColor"></div><button class="btn-primary" onclick="saveTextColors()">Guardar</button><button class="btn-secondary" onclick="resetTextColors()">Restaurar</button></div></div></div>
@@ -1523,6 +1537,45 @@ function resetFiltersToDefault() {
     createQuickFilters();
     notify('🔄 Filtros restaurados');
   }
+}
+
+// ==================== VISTA PREVIA DEL PRODUCTO (ADMIN) ====================
+function previewProduct(id) {
+  const p = DB.products.find(x => x.id === id);
+  if (!p) { notify('Producto no encontrado', 'error'); return; }
+  const imgSrc = p.images && p.images[0] ? p.images[0] : 'https://via.placeholder.com/300?text=Sin+Imagen';
+  const badgeHtml = p.badge ? `<span class="badge badge-${p.badge.toLowerCase()}">${p.badge}</span>` : 'Sin etiqueta';
+  
+  // Generar miniaturas adicionales
+  let thumbsHtml = '';
+  if (p.images && p.images.length > 1) {
+    thumbsHtml = `<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;justify-content:center">
+      ${p.images.slice(1).map(img => `<img src="${img}" style="width:60px;height:60px;object-fit:contain;border-radius:var(--radius-sm);border:1px solid var(--border);padding:4px;" onerror="this.style.display='none'">`).join('')}
+    </div>`;
+  }
+
+  const html = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start">
+      <div style="text-align:center">
+        <img src="${imgSrc}" style="max-width:100%;max-height:350px;object-fit:contain;border-radius:var(--radius);background:var(--bg3);padding:16px;" onerror="this.src='https://via.placeholder.com/300?text=Error'">
+        ${thumbsHtml}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div><strong style="font-size:1.2rem">${escapeHtml(p.name)}</strong></div>
+        <div><span style="color:var(--text3)">N° Parte:</span> ${escapeHtml(p.partNumber || '—')}</div>
+        <div><span style="color:var(--text3)">Marca:</span> ${escapeHtml(p.brand || '—')}</div>
+        <div><span style="color:var(--text3)">Modelo:</span> ${escapeHtml(p.model || '—')}</div>
+        <div><span style="color:var(--text3)">Categoría:</span> ${escapeHtml(p.componentType || '—')} / ${escapeHtml(p.partSpecific || '—')}</div>
+        <div><span style="color:var(--text3)">Precio:</span> <strong style="font-size:1.4rem;font-family:var(--font-mono)">$${formatNum(p.finalPrice)}</strong></div>
+        <div><span style="color:var(--text3)">Stock:</span> <span style="color:${p.stock === 0 ? 'red' : p.stock < 5 ? 'orange' : 'green'}">${p.stock}</span></div>
+        <div><span style="color:var(--text3)">Etiqueta:</span> ${badgeHtml}</div>
+        ${p.description ? `<div><span style="color:var(--text3)">Descripción:</span><p style="background:var(--bg3);padding:8px;border-radius:var(--radius-sm);margin-top:4px;font-size:0.9rem">${escapeHtml(p.description)}</p></div>` : ''}
+        <button class="btn-primary" onclick="closeModal('adminPreviewModal');openAddProduct('${p.id}')">✏️ Editar Producto</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('adminPreviewBody').innerHTML = html;
+  openModal('adminPreviewModal');
 }
 
 // ==================== CARGA EXCLUSIVA DESDE NUBE ====================
@@ -1856,7 +1909,24 @@ function openEditClientModal(email) { if (currentUser?.role !== 'admin') { notif
 function saveClientFromAdmin() { const email = document.getElementById('clientEditEmail').value; const name = document.getElementById('clientEditName').value.trim(); const phone = document.getElementById('clientEditPhone').value.trim(); const address = document.getElementById('clientEditAddress').value.trim(); const pass = document.getElementById('clientEditPassword').value; const role = document.getElementById('clientEditRole').value; if (!name) { notify('⚠️ Nombre requerido','error'); return; } const idx = DB.users.findIndex(u => u.email === email); if (idx !== -1) { DB.users[idx].name = name; DB.users[idx].phone = phone; DB.users[idx].address = address; DB.users[idx].role = role; DB.users[idx].updatedAt = Date.now(); if (pass.length >= 6) DB.users[idx].password = pass; if (currentUser && currentUser.email === email) { currentUser = DB.users[idx]; updateAuthUI(); } saveFullData(); renderClientsTable(); closeModal('clientEditModal'); notify('✅ Cliente actualizado'); } }
 function deleteClientByAdmin(email) { if (currentUser?.role !== 'admin') { notify('⛔ Solo el administrador puede eliminar clientes', 'error'); return; } if (email === 'dmadmin23') { notify('⚠️ No se puede eliminar admin principal','error'); return; } if (confirm('¿Eliminar cliente?')) { DB.users = DB.users.filter(u => u.email !== email); if (currentUser && currentUser.email === email) currentUser = null; saveFullData(); renderClientsTable(); updateAuthUI(); notify('🗑️ Cliente eliminado'); } }
 function sendWhatsAppToClient(phone, name) { if (!phone) { notify('⚠️ Sin teléfono','error'); return; } const msg = encodeURIComponent(`Hola ${name}, somos de ${DB.config.storeName || 'TechParts'}. ¿Cómo podemos ayudarte?`); window.open(`https://wa.me/${phone.replace(/\D/g,'')}?text=${msg}`,'_blank'); }
-function renderInventoryTable(query = '') { const tbody = document.getElementById('invTbody'); if (!tbody) return; let prods = [...DB.products]; if (query) { const q = query.toLowerCase(); prods = prods.filter(p => p.name.toLowerCase().includes(q) || (p.partNumber || '').toLowerCase().includes(q)); } if (!prods.length) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center">Sin productos</span></tr>'; return; } tbody.innerHTML = prods.map(p => `<tr><td><img class="tbl-img" src="${p.images?.[0] || 'https://via.placeholder.com/44'}" onerror="this.src='https://via.placeholder.com/44'"></span><td><strong>${escapeHtml(p.name)}</strong></td><td>${p.partNumber || '—'}</span><td>${[p.brand, p.model, p.partSpecific].filter(Boolean).join(' › ')}</span><td>$${formatNum(p.finalPrice)}</span><td><span style="color:${p.stock === 0 ? 'red' : p.stock < 5 ? 'orange' : 'green'}">${p.stock}</span><div class="stock-bar"><div class="stock-fill" style="width:${Math.min(100, p.stock * 5)}%;background:${p.stock === 0 ? 'red' : p.stock < 5 ? 'orange' : 'green'}"></div></div></span><td>${p.badge ? `<span class="badge badge-${p.badge.toLowerCase()}">${p.badge}</span>` : '—'}</span><td><div class="tbl-actions">${currentUser?.role === 'admin' ? `<button class="tbl-btn tbl-edit" onclick="openAddProduct('${p.id}')">✏️</button><button class="tbl-btn tbl-del" onclick="deleteProduct('${p.id}')">🗑️</button>` : '<span style="color:var(--text3);font-size:0.7rem">Solo admin</span>'}</div></span>`).join(''); }
+function renderInventoryTable(query = '') { 
+  const tbody = document.getElementById('invTbody'); 
+  if (!tbody) return; 
+  let prods = [...DB.products]; 
+  if (query) { 
+    const q = query.toLowerCase(); 
+    prods = prods.filter(p => p.name.toLowerCase().includes(q) || (p.partNumber || '').toLowerCase().includes(q)); 
+  } 
+  if (!prods.length) { 
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center">Sin productos</span></tr>'; 
+    return; 
+  } 
+  tbody.innerHTML = prods.map(p => `<tr><td><img class="tbl-img" src="${p.images?.[0] || 'https://via.placeholder.com/44'}" onerror="this.src='https://via.placeholder.com/44'"></span><td><strong>${escapeHtml(p.name)}</strong></td><td>${p.partNumber || '—'}</span><td>${[p.brand, p.model, p.partSpecific].filter(Boolean).join(' › ')}</span><td>$${formatNum(p.finalPrice)}</span><td><span style="color:${p.stock === 0 ? 'red' : p.stock < 5 ? 'orange' : 'green'}">${p.stock}</span><div class="stock-bar"><div class="stock-fill" style="width:${Math.min(100, p.stock * 5)}%;background:${p.stock === 0 ? 'red' : p.stock < 5 ? 'orange' : 'green'}"></div></div></span><td>${p.badge ? `<span class="badge badge-${p.badge.toLowerCase()}">${p.badge}</span>` : '—'}</span><td><div class="tbl-actions">
+    <button class="tbl-btn" style="background:var(--primary);color:var(--secondary);border:1px solid var(--primary)" onclick="previewProduct('${p.id}')" title="Vista previa">👁️</button>
+    <button class="tbl-btn tbl-edit" onclick="openAddProduct('${p.id}')">✏️</button>
+    <button class="tbl-btn tbl-del" onclick="deleteProduct('${p.id}')">🗑️</button>
+  </div></span>`).join(''); 
+}
 function openAddProduct(id) { if (currentUser?.role !== 'admin') { notify('⛔ Solo el administrador puede editar productos', 'error'); return; } clearProductForm(); photoUrls = []; if (id) { const p = DB.products.find(x => x.id === id); if (!p) return; editingProductId = id; document.getElementById('formTitle').textContent = '✏️ Editar Producto'; document.getElementById('editingId').value = id; document.getElementById('pName').value = p.name || ''; document.getElementById('pPart').value = p.partNumber || ''; document.getElementById('pDescription').value = p.description || ''; document.getElementById('pCost').value = p.cost || ''; document.getElementById('pMargin').value = p.margin || ''; document.getElementById('pFinal').value = p.finalPrice; document.getElementById('pStock').value = p.stock; photoUrls = [...(p.images || [])]; selectedBadge = p.badge || ''; document.querySelectorAll('.badge-opt').forEach(b => b.classList.toggle('active', b.dataset.val === selectedBadge)); updateCatSelectors(); setTimeout(() => { if (document.getElementById('catBrand') && p.brand) document.getElementById('catBrand').value = p.brand; updateCatModel(); setTimeout(() => { if (document.getElementById('catModel') && p.model) document.getElementById('catModel').value = p.model; if (document.getElementById('catType') && p.componentType) document.getElementById('catType').value = p.componentType; updateCatParts(); if (document.getElementById('catPart') && p.partSpecific) document.getElementById('catPart').value = p.partSpecific; }, 50); }, 50); } else { editingProductId = null; document.getElementById('formTitle').textContent = '➕ Nuevo Producto'; document.getElementById('editingId').value = ''; updateCatSelectors(); } renderPhotoList(); calcFinalPrice(); }
 function clearProductForm() { editingProductId = null; document.getElementById('editingId').value = ''; document.getElementById('formTitle').textContent = '➕ Nuevo Producto'; document.getElementById('pName').value = ''; document.getElementById('pPart').value = ''; document.getElementById('pDescription').value = ''; document.getElementById('pCost').value = ''; document.getElementById('pMargin').value = ''; document.getElementById('pFinal').value = ''; document.getElementById('pStock').value = ''; photoUrls = []; selectedBadge = ''; document.querySelectorAll('.badge-opt').forEach(b => b.classList.remove('active')); renderPhotoList(); document.getElementById('priceCalcBox').style.display = 'none'; updateCatSelectors(); }
 function saveProduct() { if (currentUser?.role !== 'admin') { notify('⛔ Solo el administrador puede guardar productos', 'error'); return; } const name = document.getElementById('pName').value.trim(); if (!name) { notify('⚠️ Nombre obligatorio','error'); return; } const finalPrice = parseFloat(document.getElementById('pFinal').value); if (!finalPrice || finalPrice <= 0) { notify('⚠️ Precio válido','error'); return; } const stock = parseInt(document.getElementById('pStock').value) || 0; const brand = document.getElementById('catBrand').value, model = document.getElementById('catModel').value, componentType = document.getElementById('catType').value, partSpecific = document.getElementById('catPart').value; const description = document.getElementById('pDescription').value.trim(); if (brand && !DB.categories.brands.includes(brand)) DB.categories.brands.push(brand); if (brand && model) { if (!DB.categories.models[brand]) DB.categories.models[brand] = []; if (!DB.categories.models[brand].includes(model)) DB.categories.models[brand].push(model); } if (partSpecific && !DB.categories.parts.includes(partSpecific)) DB.categories.parts.push(partSpecific); const product = { id: editingProductId || ('P' + Date.now()), name: name, description: description, partNumber: document.getElementById('pPart').value.trim(), brand: brand, model: model, componentType: componentType, partSpecific: partSpecific, images: photoUrls.filter(Boolean), cost: parseFloat(document.getElementById('pCost').value) || 0, margin: parseFloat(document.getElementById('pMargin').value) || 0, finalPrice: finalPrice, stock: stock, badge: selectedBadge }; if (editingProductId) { const idx = DB.products.findIndex(p => p.id === editingProductId); if (idx !== -1) DB.products[idx] = product; } else { DB.products.unshift(product); } saveFullData(); renderInventoryTable(); renderProducts(); renderStats(); clearProductForm(); notify(editingProductId ? '✅ Producto actualizado' : '✅ Producto creado'); }
