@@ -2,12 +2,12 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Data-Masters ventas</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js" defer></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js" defer></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script>
 window._fbConfig = {
   apiKey: "AIzaSyCEIAO0rgzkfQofsqviwvdQvumJNgUepZ8",
@@ -54,7 +54,6 @@ if (!_initFirebase()) {
     function loadScript(src) {
       var s = document.createElement('script');
       s.src = src;
-      s.async = true;
       s.onload = onLoad;
       s.onerror = function(){ console.warn('Error al cargar Firebase script:', src); onLoad(); };
       document.head.appendChild(s);
@@ -166,44 +165,23 @@ if (!_initFirebase()) {
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body {
-  font-family: var(--font);
-  background: var(--bg);
-  color: var(--text);
-  min-height: 100vh;
-  background-position: center center !important;
+body { 
+  font-family: var(--font); 
+  background: var(--bg); 
+  color: var(--text); 
+  min-height: 100vh; 
+  transition: background 0.2s, color 0.2s; 
+  background-position: center center !important; 
   background-attachment: fixed !important;
   -webkit-overflow-scrolling: touch;
 }
 
-/* Overlay de carga con blur */
-#loadingOverlay {
-  position: fixed;
-  inset: 0;
-  z-index: 99999;
-  background: rgba(255,255,255,0.85);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  gap: 16px;
-  transition: opacity 0.6s ease;
-  pointer-events: none;
+/* En móvil desactivamos attachment fixed para evitar parpadeos */
+@media (max-width: 768px) {
+  body {
+    background-attachment: scroll !important;
+  }
 }
-#loadingOverlay.hidden {
-  opacity: 0;
-}
-#loadingOverlay .spinner {
-  width: 48px;
-  height: 48px;
-  border: 4px solid rgba(0,0,0,0.1);
-  border-left-color: var(--primary);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
 
 /* Panel de administración con fondo sólido para que no herede el fondo de pantalla */
 #adminView {
@@ -229,11 +207,12 @@ body {
   background: var(--header-bg);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  position: sticky;
-  top: 0;
+  position: sticky; 
+  top: 0; 
   z-index: 1000;
   padding: 0 24px;
   box-shadow: 0 2px 20px rgba(0,0,0,0.2);
+  will-change: transform;
 }
 .header-inner {
   max-width: 1400px; margin: 0 auto;
@@ -364,13 +343,12 @@ body {
   overflow: hidden;
   transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
   cursor: pointer;
-  display: flex;
-  flex-direction: column;
+  display: flex; flex-direction: column;
   position: relative;
 }
 .product-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-hover); border-color: var(--primary); }
 .card-img-wrap { position: relative; height: 200px; background: var(--bg3); overflow: hidden; }
-.card-img-wrap img { width: 100%; height: 100%; object-fit: contain; padding: 16px; transition: transform 0.4s ease; background: #fff; }
+.card-img-wrap img { width: 100%; height: 100%; object-fit: contain; padding: 16px; transition: transform 0.4s ease; }
 .product-card:hover .card-img-wrap img { transform: scale(1.06); }
 .card-badges { position: absolute; top: 10px; left: 10px; display: flex; flex-direction: column; gap: 4px; }
 .badge {
@@ -485,11 +463,11 @@ body {
 .product-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
 .pd-gallery { position: relative; }
 .pd-main-img { width: 100%; aspect-ratio: 1; background: var(--bg3); border-radius: var(--radius); overflow: hidden; margin-bottom: 12px; }
-.pd-main-img img { width: 100%; height: 100%; object-fit: contain; padding: 20px; background: #fff; }
+.pd-main-img img { width: 100%; height: 100%; object-fit: contain; padding: 20px; }
 .pd-thumbs { display: flex; gap: 8px; flex-wrap: wrap; }
 .pd-thumb { width: 60px; height: 60px; border-radius: var(--radius-sm); border: 2px solid var(--border); overflow: hidden; cursor: pointer; transition: var(--transition); }
 .pd-thumb.active, .pd-thumb:hover { border-color: var(--primary); }
-.pd-thumb img { width: 100%; height: 100%; object-fit: contain; padding: 4px; background: #fff; }
+.pd-thumb img { width: 100%; height: 100%; object-fit: contain; padding: 4px; }
 .pd-info { display: flex; flex-direction: column; gap: 14px; }
 .pd-brand { font-size: 0.8rem; color: var(--text3); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
 .pd-name { font-size: 1.5rem; font-weight: 800; line-height: 1.2; }
@@ -508,7 +486,7 @@ body {
   padding: 12px; border: 1px solid var(--border);
 }
 .cart-item-img { width: 60px; height: 60px; background: var(--bg3); border-radius: var(--radius-sm); overflow: hidden; flex-shrink: 0; }
-.cart-item-img img { width: 100%; height: 100%; object-fit: contain; padding: 4px; background: #fff; }
+.cart-item-img img { width: 100%; height: 100%; object-fit: contain; padding: 4px; }
 .cart-item-info { flex: 1; }
 .cart-item-name { font-size: 0.88rem; font-weight: 600; margin-bottom: 4px; }
 .cart-item-price { font-size: 0.95rem; font-weight: 700; color: var(--text); font-family: var(--font-mono); }
@@ -895,7 +873,6 @@ footer {
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
     padding: 0 12px;
-    position: relative !important;
   }
   .header-inner { flex-wrap: wrap; height: auto; padding: 10px 0; gap: 10px; }
   .search-wrap { order: 3; width: 100%; max-width: none; }
@@ -903,50 +880,30 @@ footer {
   .banner-carousel { height: 160px; }
   .banner-content h2 { font-size: 1.4rem; }
   .form-row { grid-template-columns: 1fr; }
-  .products-grid {
-    grid-template-columns: 1fr !important;
-    gap: 16px;
-  }
-  .card-img-wrap { height: 180px; }
-  .card-img-wrap img {
-    object-fit: cover !important;
-  }
+  .products-grid { grid-template-columns: repeat(auto-fill, minmax(160px,1fr)); }
+  .card-img-wrap { height: 150px; }
   .new-sale-card h2 { font-size: 1.2rem; }
   .new-sale-icon { font-size: 36px; }
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
   .stat-val { font-size: 1.4rem; }
-  /* Desactivar hover y transiciones en móvil */
-  .product-card {
-    transition: none !important;
-    contain: layout style paint;
-  }
+  /* Desactivar hover effects en móvil para evitar parpadeos */
   .product-card:hover { transform: none !important; }
   .product-card:hover .card-img-wrap img { transform: none !important; }
-  .card-img-wrap img { transition: none !important; }
-  .btn-cart { transition: none !important; }
   .btn-cart:hover { transform: none !important; }
-  .new-sale-card { transition: none !important; }
   .new-sale-card:hover { transform: none !important; }
-  .theme-card { transition: none !important; }
   .theme-card:hover { transform: none !important; }
-  .logo-option { transition: none !important; }
   .logo-option:hover { transform: none !important; }
-  .seasonal-card { transition: none !important; }
   .seasonal-card:hover { transform: none !important; }
-  .btn-primary { transition: none !important; }
   .btn-primary:hover { transform: none !important; }
-  .btn-secondary { transition: none !important; }
   .btn-secondary:hover { transform: none !important; }
-  .btn-review { transition: none !important; }
+  .theme-card:hover { transform: none !important; }
+  .logo-option:hover { transform: none !important; }
+  .seasonal-card:hover { transform: none !important; }
   .btn-review:hover { transform: none !important; }
   .banner-slide { transition: opacity 0.3s ease; }
+  /* Fondo fijo desactivado */
   body {
     background-attachment: scroll !important;
-  }
-  /* Fondo sólido para tarjetas */
-  .product-card {
-    background: var(--surface) !important;
-    border: 1px solid var(--border) !important;
   }
 }
 
@@ -1034,10 +991,10 @@ footer {
 </head>
 <body>
 
-<!-- Overlay de carga con blur -->
-<div id="loadingOverlay">
-  <div class="spinner"></div>
-  <p style="font-weight:600;color:var(--text);">Cargando tienda...</p>
+<div class="page-loading" id="pageLoading">
+  <div class="loading-logo">💻</div>
+  <div class="loading-bar"><div class="loading-fill"></div></div>
+  <p style="color:rgba(255,255,255,0.5);font-size:0.85rem;" id="loadingMessage">🌐 Conectando con la nube...</p>
 </div>
 
 <header id="header">
@@ -1218,7 +1175,7 @@ footer {
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
         <div><h3 style="margin-bottom:20px;font-size:1.05rem;font-weight:700">Identidad Corporativa</h3><div class="form-group"><label>Nombre de la tienda</label><input type="text" id="idStoreName" placeholder="TechParts Store" oninput="updateIdentityPreview()"></div><div class="form-group"><label>Slogan / Descripción</label><input type="text" id="idSlogan" placeholder="Especialistas en repuestos para notebooks" oninput="updateIdentityPreview()"></div><div class="form-group"><label>Logo de la tienda</label><div class="logo-selector-grid" id="logoSelectorGrid"></div><div class="logo-preview-current"><div class="current-icon" id="currentLogoPreview">💻</div><div class="current-text">Logo actual</div></div></div><div class="form-group"><label>WhatsApp</label><input type="text" id="idWA" placeholder="+54 9 351 000-0000"></div><div class="form-group"><label>Email de contacto</label><input type="email" id="idEmail" placeholder="contacto@techparts.com"></div><div class="form-group"><label>Dirección física</label><input type="text" id="idAddress" placeholder="Av. Colón 123, Córdoba"></div><div class="form-row"><div class="form-group"><label>Horario de atención</label><input type="text" id="idHours" placeholder="9:00 - 18:00"></div><div class="form-group"><label>Días de apertura</label><input type="text" id="idDays" placeholder="Lun - Vie"></div></div>
           
-          <!-- BLOQUE DE CREDENCIALES -->
+          <!-- BLOQUE DE CREDENCIALES (exactamente como en tu fragmento) -->
           <div style="border-top:1px solid var(--border);padding-top:20px;margin-top:10px">
             <h4 style="font-size:0.95rem;font-weight:700;margin-bottom:12px">🔐 Credenciales de Administrador</h4>
             <div class="form-group"><label>Usuario Administrador</label><input type="text" id="idAdminUser" placeholder="Usuario del admin"></div>
@@ -1792,9 +1749,6 @@ function loadDataFromCloud() {
     createQuickFilters();
     checkAdminSetup();
     setTimeout(setupRealtimeSync, 2000);
-    // Ocultar overlay de carga con blur
-    const overlay = document.getElementById('loadingOverlay');
-    if (overlay) overlay.classList.add('hidden');
     const loading = document.getElementById('pageLoading');
     if (loading) { loading.style.opacity = '0'; setTimeout(function() { loading.style.display = 'none'; }, 500); }
   }
@@ -2156,7 +2110,7 @@ function openUserMenu(){ if(!currentUser)return; document.getElementById('userPr
 function openEditProfileModal(){ if(!currentUser)return; const html=`<div class="modal-overlay" id="editProfileModal"><div class="modal-box"><div class="modal-header"><h2>✏️ Editar Perfil</h2><button class="modal-close" onclick="closeModal('editProfileModal')">✕</button></div><div class="modal-body"><div class="form-group"><label>Nombre</label><input type="text" id="editProfileName" value="${escapeHtml(currentUser.name)}"></div><div class="form-group"><label>Teléfono</label><input type="tel" id="editProfilePhone" value="${escapeHtml(currentUser.phone||'')}"></div><div class="form-group"><label>Dirección</label><input type="text" id="editProfileAddress" value="${escapeHtml(currentUser.address||'')}"></div><div class="form-group"><label>Nueva contraseña</label><input type="password" id="editProfilePassword" placeholder="Dejar vacío para no cambiar"></div><button class="btn-primary" onclick="saveProfileChanges()">Guardar</button><button class="btn-secondary" onclick="closeModal('editProfileModal')">Cancelar</button></div></div></div>`; document.body.insertAdjacentHTML('beforeend',html); document.getElementById('editProfileModal').classList.add('open'); }
 function saveProfileChanges(){ if(!currentUser)return; const newName=document.getElementById('editProfileName').value.trim(); const newPhone=document.getElementById('editProfilePhone').value.trim(); const newAddress=document.getElementById('editProfileAddress').value.trim(); const newPass=document.getElementById('editProfilePassword').value; if(!newName){ notify('⚠️ Nombre requerido','error'); return; } const idx=DB.users.findIndex(u=>u.email===currentUser.email); if(idx!==-1){ DB.users[idx].name=newName; DB.users[idx].phone=newPhone; DB.users[idx].address=newAddress; DB.users[idx].updatedAt=Date.now(); if(newPass.length>=6) DB.users[idx].password=newPass; } currentUser.name=newName; currentUser.phone=newPhone; currentUser.address=newAddress; if(newPass.length>=6) currentUser.password=newPass; saveFullData(); updateAuthUI(); closeModal('editProfileModal'); notify('✅ Perfil actualizado'); }
 
-// ==================== ADMIN CREDENTIALS MODAL ====================
+// ==================== ADMIN CREDENTIALS MODAL (NUEVO) ====================
 let adminCredModalInitialized = false;
 
 function ensureAdminCredentialsModal() {
