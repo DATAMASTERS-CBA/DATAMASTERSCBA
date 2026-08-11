@@ -1298,6 +1298,7 @@ let DB = {
     textColors: { main: '#1A1A2E', secondary: '#555', tertiary: '#888', border: '#E0E0E0', bg: '#F5F5F5', surface: '#FFF' },
     autoContrast: false,
     quickFilters: ['Todos', 'Pantalla', 'Teclado', 'Batería', 'Cargador', 'Placa Madre', 'Memoria RAM', 'Disco SSD', 'Procesador'],
+    // Credenciales del administrador (se almacenan en Firebase, nunca en el HTML)
     adminUser: 'dmadmin23',
     adminPass: 'alexalex23'
   }
@@ -1380,6 +1381,7 @@ function _fixDB() {
   if (DB.config.quickFilters[0] !== 'Todos') {
     DB.config.quickFilters = ['Todos', ...DB.config.quickFilters.filter(f => f !== 'Todos')];
   }
+  // Asegurar credenciales admin
   if (!DB.config.adminUser) DB.config.adminUser = 'dmadmin23';
   if (!DB.config.adminPass) DB.config.adminPass = 'alexalex23';
 }
@@ -1409,8 +1411,8 @@ function setupRealtimeSync() {
           _fixDB();
           if (currentUser) { const updated = DB.users.find(u => u.email === currentUser.email); if (updated) { currentUser = updated; updateAuthUI(); } }
           renderProducts(); renderInventoryTable(); renderStats(); renderAllOrders(); renderDeliveredList(); renderClientsTable(); renderHistoryList();
-          renderFiltersAdmin();
-          createQuickFilters();
+          renderFiltersAdmin(); // Actualizar lista de filtros en admin
+          createQuickFilters(); // Regenerar botones en tienda
         } catch(e) { console.warn(e); }
       }
     },
@@ -1751,6 +1753,7 @@ function doLogin() {
   const normalizedUser = normalizeStr(user);
   const normalizedPass = normalizeStr(pass);
   
+  // Verificar contra credenciales almacenadas en Firebase (DB.config)
   const adminUser = DB.config.adminUser || 'dmadmin23';
   const adminPass = DB.config.adminPass || 'alexalex23';
   if (normalizedUser === normalizeStr(adminUser) && normalizedPass === normalizeStr(adminPass)) {
@@ -1972,7 +1975,7 @@ function renderInventoryTable(query = '') {
     <button class="tbl-btn" style="background:var(--primary);color:var(--secondary);border:1px solid var(--primary)" onclick="previewProduct('${p.id}')" title="Vista previa">👁️</button>
     <button class="tbl-btn tbl-edit" onclick="openAddProduct('${p.id}')">✏️</button>
     <button class="tbl-btn tbl-del" onclick="deleteProduct('${p.id}')">🗑️</button>
-  </div></span>`); 
+  </div></span>`).join(''); 
 }
 function openAddProduct(id) { if (currentUser?.role !== 'admin') { notify('⛔ Solo el administrador puede editar productos', 'error'); return; } clearProductForm(); photoUrls = []; if (id) { const p = DB.products.find(x => x.id === id); if (!p) return; editingProductId = id; document.getElementById('formTitle').textContent = '✏️ Editar Producto'; document.getElementById('editingId').value = id; document.getElementById('pName').value = p.name || ''; document.getElementById('pPart').value = p.partNumber || ''; document.getElementById('pDescription').value = p.description || ''; document.getElementById('pCost').value = p.cost || ''; document.getElementById('pMargin').value = p.margin || ''; document.getElementById('pFinal').value = p.finalPrice; document.getElementById('pStock').value = p.stock; photoUrls = [...(p.images || [])]; selectedBadge = p.badge || ''; document.querySelectorAll('.badge-opt').forEach(b => b.classList.toggle('active', b.dataset.val === selectedBadge)); updateCatSelectors(); setTimeout(() => { if (document.getElementById('catBrand') && p.brand) document.getElementById('catBrand').value = p.brand; updateCatModel(); setTimeout(() => { if (document.getElementById('catModel') && p.model) document.getElementById('catModel').value = p.model; if (document.getElementById('catType') && p.componentType) document.getElementById('catType').value = p.componentType; updateCatParts(); if (document.getElementById('catPart') && p.partSpecific) document.getElementById('catPart').value = p.partSpecific; }, 50); }, 50); } else { editingProductId = null; document.getElementById('formTitle').textContent = '➕ Nuevo Producto'; document.getElementById('editingId').value = ''; updateCatSelectors(); } renderPhotoList(); calcFinalPrice(); }
 function clearProductForm() { editingProductId = null; document.getElementById('editingId').value = ''; document.getElementById('formTitle').textContent = '➕ Nuevo Producto'; document.getElementById('pName').value = ''; document.getElementById('pPart').value = ''; document.getElementById('pDescription').value = ''; document.getElementById('pCost').value = ''; document.getElementById('pMargin').value = ''; document.getElementById('pFinal').value = ''; document.getElementById('pStock').value = ''; photoUrls = []; selectedBadge = ''; document.querySelectorAll('.badge-opt').forEach(b => b.classList.remove('active')); renderPhotoList(); document.getElementById('priceCalcBox').style.display = 'none'; updateCatSelectors(); }
@@ -1995,9 +1998,9 @@ function renderLogoSelector(){ const c=document.getElementById('logoSelectorGrid
 function selectLogo(icon,el){ DB.config.logoIcon=icon; saveFullData(); updateHeaderLogo(); renderLogoSelector(); notify('✅ Logo actualizado'); }
 function updateHeaderLogo(){ const i=document.getElementById('headerLogoIcon'); if(i)i.textContent=DB.config.logoIcon||'💻'; }
 function updateHeaderStoreName(){ const name=DB.config.storeName||'TechParts Store'; const h=document.getElementById('headerStoreName'); if(h){ const p=name.split(/(\s.+)/); if(p.length>1) h.innerHTML=`${escapeHtml(p[0])}<span>${escapeHtml(p[1]||'')}</span>`; else h.innerHTML=escapeHtml(name); } document.title=name; }
-function loadIdentityForm(){ const c=DB.config; document.getElementById('idStoreName').value=c.storeName||''; document.getElementById('idSlogan').value=c.slogan||''; document.getElementById('idWA').value=c.wa||''; document.getElementById('idEmail').value=c.email||''; document.getElementById('idAddress').value=c.address||''; document.getElementById('idHours').value=c.hours||''; document.getElementById('idDays').value=c.days||''; document.getElementById('idAdminUser').value=c.adminUser||''; document.getElementById('idAdminPass').value=''; updateIdentityPreview(); renderLogoSelector(); }
+function loadIdentityForm(){ const c=DB.config; document.getElementById('idStoreName').value=c.storeName||''; document.getElementById('idSlogan').value=c.slogan||''; document.getElementById('idWA').value=c.wa||''; document.getElementById('idEmail').value=c.email||''; document.getElementById('idAddress').value=c.address||''; document.getElementById('idHours').value=c.hours||''; document.getElementById('idDays').value=c.days||''; // Cargar credenciales admin (la contraseña no se muestra) document.getElementById('idAdminUser').value=c.adminUser||''; document.getElementById('idAdminPass').value=''; updateIdentityPreview(); renderLogoSelector(); }
 function updateIdentityPreview(){ const name=document.getElementById('idStoreName')?.value||'TechParts Store'; const slogan=document.getElementById('idSlogan')?.value||''; const wa=document.getElementById('idWA')?.value||''; const email=document.getElementById('idEmail')?.value||''; const addr=document.getElementById('idAddress')?.value||''; document.getElementById('previewStoreName').textContent=name; document.getElementById('previewSlogan').textContent=slogan; const contact=document.getElementById('previewContact'); if(contact) contact.innerHTML=[wa?`📱 ${escapeHtml(wa)}`:'',email?`✉️ ${escapeHtml(email)}`:'',addr?`📍 ${escapeHtml(addr)}`:''].filter(Boolean).join('<br>'); }
-function saveIdentity(){ DB.config.storeName=document.getElementById('idStoreName').value.trim()||'TechParts Store'; DB.config.slogan=document.getElementById('idSlogan').value.trim(); DB.config.wa=document.getElementById('idWA').value.trim(); DB.config.email=document.getElementById('idEmail').value.trim(); DB.config.address=document.getElementById('idAddress').value.trim(); DB.config.hours=document.getElementById('idHours').value.trim(); DB.config.days=document.getElementById('idDays').value.trim(); const newUser=document.getElementById('idAdminUser').value.trim(); if(newUser) DB.config.adminUser=newUser; const newPass=document.getElementById('idAdminPass').value; if(newPass && newPass.length>=6) DB.config.adminPass=newPass; saveFullData(); updateFooter(); updateHeaderStoreName(); updateHeaderLogo(); notify('✅ Identidad guardada'); }
+function saveIdentity(){ DB.config.storeName=document.getElementById('idStoreName').value.trim()||'TechParts Store'; DB.config.slogan=document.getElementById('idSlogan').value.trim(); DB.config.wa=document.getElementById('idWA').value.trim(); DB.config.email=document.getElementById('idEmail').value.trim(); DB.config.address=document.getElementById('idAddress').value.trim(); DB.config.hours=document.getElementById('idHours').value.trim(); DB.config.days=document.getElementById('idDays').value.trim(); // Guardar credenciales admin const newUser=document.getElementById('idAdminUser').value.trim(); if(newUser) DB.config.adminUser=newUser; const newPass=document.getElementById('idAdminPass').value; if(newPass && newPass.length>=6) DB.config.adminPass=newPass; // Si la contraseña está vacía, no se cambia saveFullData(); updateFooter(); updateHeaderStoreName(); updateHeaderLogo(); notify('✅ Identidad guardada'); }
 function updateFooter(){ const c=DB.config; const n=c.storeName||'TechParts Store'; const fs=document.getElementById('footerStoreName'); if(fs)fs.textContent=n; const fc=document.getElementById('footerCopy'); if(fc)fc.textContent=n; const fd=document.getElementById('footerDesc'); if(fd)fd.textContent=c.slogan||'Especialistas en repuestos'; const fw=document.getElementById('footerWA'); if(fw){ fw.textContent=`📱 ${c.wa||'WhatsApp'}`; fw.href=c.wa?`https://wa.me/${c.wa.replace(/\D/g,'')}`:'#'; } const fe=document.getElementById('footerEmail'); if(fe){ fe.textContent=`✉️ ${c.email||'Email'}`; fe.href=c.email?`mailto:${c.email}`:'#'; } const fa=document.getElementById('footerAddress'); if(fa)fa.textContent=`📍 ${c.address||'Dirección'}`; const fh=document.getElementById('footerHours'); if(fh)fh.textContent=`⏰ ${c.hours||'9:00-18:00'}`; const fd2=document.getElementById('footerDays'); if(fd2)fd2.textContent=`📅 ${c.days||'Lun-Vie'}`; }
 function renderSeasonalGrid(){ const g=document.getElementById('seasonalGrid'); if(!g)return; g.innerHTML=Object.entries(seasonalBackgrounds).map(([k,v])=>`<div class="seasonal-card" onclick="applySeasonalBg('${k}')" style="background:${v.gradient}"><div style="font-size:32px">${v.icon}</div><div>${v.name}</div></div>`).join(''); }
 function applySeasonalBg(k){ const bg=seasonalBackgrounds[k]; if(!bg)return; document.body.style.background=bg.gradient; DB.config.seasonalBg=k; DB.config.autoSeasonal=false; saveFullData(); notify(`🎨 ${bg.name} aplicado`); }
@@ -2016,112 +2019,128 @@ function showAdmin(){ if(!currentUser||currentUser.role!=='admin'){ notify('⛔ 
 function showStore(){ document.getElementById('storeView').style.display='block'; document.getElementById('adminView').style.display='none'; renderProducts(); renderBanners(); startBannerCarousel(); createQuickFilters(); }
 function switchAdminTab(tab,el){ document.querySelectorAll('.admin-tab').forEach(t=>t.classList.remove('active')); if(el)el.classList.add('active'); document.querySelectorAll('.admin-section').forEach(s=>s.classList.remove('active')); document.getElementById('tab-'+tab).classList.add('active'); if(tab==='inventory') renderInventoryTable(); if(tab==='delivered') renderDeliveredList(); if(tab==='clients') renderClientsTable(); if(tab==='history') renderHistoryList(); if(tab==='filters') renderFiltersAdmin(); if(tab==='identity'){ loadIdentityForm(); renderLogoSelector(); } if(tab==='branding'){ renderSeasonalGrid(); if(!bgSelectorInitialized){ createBgSelectorModal(); bgSelectorInitialized=true; } addBgSelectorButton(); } if(tab==='dashboard'){ renderNewSaleNotification(); renderStats(); } }
 function openUserMenu(){ if(!currentUser)return; document.getElementById('userProfileInfo').innerHTML=`<strong>${escapeHtml(currentUser.name)}</strong><br>✉️ ${escapeHtml(currentUser.email)}<br>${currentUser.phone?`📱 ${escapeHtml(currentUser.phone)}<br>`:''}${currentUser.address?`📍 ${escapeHtml(currentUser.address)}`:''}<button class="btn-secondary" style="margin-top:12px" onclick="openEditProfileModal()">✏️ Editar perfil</button>`; const myOrders=DB.orders.filter(o=>o.userId===currentUser.email); document.getElementById('myOrdersList').innerHTML=myOrders.length?myOrders.map(o=>renderOrderCard(o,false)).join(''):'<p>Sin pedidos</p>'; openModal('userMenuModal'); }
+function openEditProfileModal(){ if(!currentUser)return; const html=`<div class="modal-overlay" id="editProfileModal"><div class="modal-box"><div class="modal-header"><h2>✏️ Editar Perfil</h2><button class="modal-close" onclick="closeModal('editProfileModal')">✕</button></div><div class="modal-body"><div class="form-group"><label>Nombre</label><input type="text" id="editProfileName" value="${escapeHtml(currentUser.name)}"></div><div class="form-group"><label>Teléfono</label><input type="tel" id="editProfilePhone" value="${escapeHtml(currentUser.phone||'')}"></div><div class="form-group"><label>Dirección</label><input type="text" id="editProfileAddress" value="${escapeHtml(currentUser.address||'')}"></div><div class="form-group"><label>Nueva contraseña</label><input type="password" id="editProfilePassword" placeholder="Dejar vacío para no cambiar"></div><button class="btn-primary" onclick="saveProfileChanges()">Guardar</button><button class="btn-secondary" onclick="closeModal('editProfileModal')">Cancelar</button></div></div></div>`; document.body.insertAdjacentHTML('beforeend',html); document.getElementById('editProfileModal').classList.add('open'); }
+function saveProfileChanges(){ if(!currentUser)return; const newName=document.getElementById('editProfileName').value.trim(); const newPhone=document.getElementById('editProfilePhone').value.trim(); const newAddress=document.getElementById('editProfileAddress').value.trim(); const newPass=document.getElementById('editProfilePassword').value; if(!newName){ notify('⚠️ Nombre requerido','error'); return; } const idx=DB.users.findIndex(u=>u.email===currentUser.email); if(idx!==-1){ DB.users[idx].name=newName; DB.users[idx].phone=newPhone; DB.users[idx].address=newAddress; DB.users[idx].updatedAt=Date.now(); if(newPass.length>=6) DB.users[idx].password=newPass; } currentUser.name=newName; currentUser.phone=newPhone; currentUser.address=newAddress; if(newPass.length>=6) currentUser.password=newPass; saveFullData(); updateAuthUI(); closeModal('editProfileModal'); notify('✅ Perfil actualizado'); }
 
-// ============================================================
-// FUNCIONES ACTUALIZADAS PARA EDITAR PERFIL (con cambio de email)
-// ============================================================
-function openEditProfileModal() {
-  if (!currentUser) return;
-  // Eliminar modal anterior si existe
-  const oldModal = document.getElementById('editProfileModal');
-  if (oldModal) oldModal.remove();
+// ==================== ADMIN CREDENTIALS MODAL (NUEVO) ====================
+let adminCredModalInitialized = false;
 
-  const html = `
-    <div class="modal-overlay" id="editProfileModal">
+function ensureAdminCredentialsModal() {
+  if (adminCredModalInitialized) return;
+  const modalHTML = `
+    <div class="modal-overlay" id="adminCredModal">
       <div class="modal-box">
         <div class="modal-header">
-          <h2>✏️ Editar Perfil</h2>
-          <button class="modal-close" onclick="closeModal('editProfileModal')">✕</button>
+          <h2>🔑 Cambiar credenciales de administrador</h2>
+          <button class="modal-close" onclick="closeAdminCredentialsModal()">✕</button>
         </div>
         <div class="modal-body">
           <div class="form-group">
-            <label>Email / Usuario *</label>
-            <input type="email" id="editProfileEmail" value="${escapeHtml(currentUser.email)}">
+            <label>Nuevo nombre de usuario</label>
+            <input type="text" id="adminNewUser" placeholder="Usuario actual" />
           </div>
           <div class="form-group">
-            <label>Nombre *</label>
-            <input type="text" id="editProfileName" value="${escapeHtml(currentUser.name)}">
+            <label>Nueva contraseña</label>
+            <input type="password" id="adminNewPass" placeholder="Mínimo 6 caracteres" autocomplete="new-password" />
           </div>
-          <div class="form-group">
-            <label>Teléfono</label>
-            <input type="tel" id="editProfilePhone" value="${escapeHtml(currentUser.phone || '')}">
-          </div>
-          <div class="form-group">
-            <label>Dirección</label>
-            <input type="text" id="editProfileAddress" value="${escapeHtml(currentUser.address || '')}">
-          </div>
-          <div class="form-group">
-            <label>Nueva contraseña (dejar vacío para no cambiar)</label>
-            <input type="password" id="editProfilePassword" placeholder="Mínimo 6 caracteres">
-          </div>
-          <button class="btn-primary" onclick="saveProfileChanges()">Guardar</button>
-          <button class="btn-secondary" onclick="closeModal('editProfileModal')">Cancelar</button>
+          <p style="font-size:0.8rem;color:var(--text3);margin-bottom:16px;">Deja la contraseña en blanco para mantener la actual.</p>
+          <button class="btn-primary" onclick="saveAdminCredentials()">💾 Guardar</button>
+          <button class="btn-secondary" onclick="closeAdminCredentialsModal()">Cancelar</button>
         </div>
       </div>
     </div>
   `;
-  document.body.insertAdjacentHTML('beforeend', html);
-  document.getElementById('editProfileModal').classList.add('open');
+  document.body.insertAdjacentHTML('beforeend', modalHTML);
+  adminCredModalInitialized = true;
 }
 
-function saveProfileChanges() {
-  if (!currentUser) return;
-  const newEmail = document.getElementById('editProfileEmail').value.trim();
-  const newName = document.getElementById('editProfileName').value.trim();
-  const newPhone = document.getElementById('editProfilePhone').value.trim();
-  const newAddress = document.getElementById('editProfileAddress').value.trim();
-  const newPass = document.getElementById('editProfilePassword').value;
+function openAdminCredentialsModal() {
+  ensureAdminCredentialsModal();
+  // precargar valores actuales
+  const currentUser = DB.config.adminUser || 'dmadmin23';
+  document.getElementById('adminNewUser').value = currentUser;
+  document.getElementById('adminNewPass').value = '';
+  const modal = document.getElementById('adminCredModal');
+  if (modal) modal.classList.add('open');
+}
 
-  if (!newEmail) { notify('⚠️ El email es obligatorio', 'error'); return; }
-  if (!newName) { notify('⚠️ El nombre es obligatorio', 'error'); return; }
+function closeAdminCredentialsModal() {
+  const modal = document.getElementById('adminCredModal');
+  if (modal) modal.classList.remove('open');
+}
 
-  // Verificar que el nuevo email no esté en uso por otro usuario
-  const emailExists = DB.users.some(u => u.email === newEmail && u.email !== currentUser.email);
-  if (emailExists) {
-    notify('⚠️ Ese email ya está registrado por otro usuario', 'error');
+function saveAdminCredentials() {
+  const newUser = document.getElementById('adminNewUser').value.trim();
+  const newPass = document.getElementById('adminNewPass').value;
+  if (!newUser) {
+    notify('⚠️ El nombre de usuario no puede estar vacío', 'error');
     return;
   }
-
-  const oldEmail = currentUser.email;
-  // Actualizar el usuario en el array
-  const idx = DB.users.findIndex(u => u.email === oldEmail);
-  if (idx !== -1) {
-    DB.users[idx].email = newEmail;
-    DB.users[idx].name = newName;
-    DB.users[idx].phone = newPhone;
-    DB.users[idx].address = newAddress;
-    DB.users[idx].updatedAt = Date.now();
-    if (newPass.length >= 6) DB.users[idx].password = newPass;
+  if (newPass && newPass.length < 6) {
+    notify('⚠️ La contraseña debe tener al menos 6 caracteres', 'error');
+    return;
   }
-
-  // Actualizar currentUser
-  currentUser.email = newEmail;
-  currentUser.name = newName;
-  currentUser.phone = newPhone;
-  currentUser.address = newAddress;
-  if (newPass.length >= 6) currentUser.password = newPass;
-
-  // Actualizar órdenes que tengan el email antiguo como userId
-  DB.orders.forEach(o => {
-    if (o.userId === oldEmail) o.userId = newEmail;
-  });
-
-  // Si el usuario es el administrador principal, actualizar también la config
-  if (DB.config.adminUser === oldEmail) {
-    DB.config.adminUser = newEmail;
-  }
-
-  // Guardar en Firebase
+  DB.config.adminUser = newUser;
+  if (newPass) DB.config.adminPass = newPass;
   saveFullData();
-
-  // Refrescar UI
-  updateAuthUI();
-  renderClientsTable();
-  renderAllOrders();
-  renderHistoryList();
-  closeModal('editProfileModal');
-  notify('✅ Perfil actualizado correctamente', 'success');
+  // Actualizar también el campo del formulario de identidad (si existe)
+  const userField = document.getElementById('idAdminUser');
+  if (userField) userField.value = newUser;
+  // Si la sesión actual es admin, actualizar la UI de autenticación
+  if (currentUser && currentUser.role === 'admin') {
+    currentUser.email = newUser;
+    updateAuthUI();
+  }
+  closeAdminCredentialsModal();
+  notify('✅ Credenciales de administrador actualizadas', 'success');
 }
+
+function initAdminCredentialsUI() {
+  const identitySection = document.getElementById('tab-identity');
+  if (!identitySection) return;
+  // Buscar el título "Credenciales de Administrador"
+  const headers = identitySection.querySelectorAll('h4');
+  let target = null;
+  for (const h of headers) {
+    if (h.textContent.includes('Credenciales de Administrador')) {
+      target = h;
+      break;
+    }
+  }
+  if (!target) return;
+  // Si ya tiene el icono, no agregar de nuevo
+  if (target.querySelector('.admin-key-icon')) return;
+  const keySpan = document.createElement('span');
+  keySpan.className = 'admin-key-icon';
+  keySpan.textContent = ' 🔑';
+  keySpan.style.cursor = 'pointer';
+  keySpan.style.fontSize = '1.2rem';
+  keySpan.style.marginLeft = '6px';
+  keySpan.title = 'Doble clic para cambiar credenciales de administrador';
+  keySpan.addEventListener('dblclick', openAdminCredentialsModal);
+  target.appendChild(keySpan);
+}
+
+// Modificar switchAdminTab para llamar a initAdminCredentialsUI cuando se muestre 'identity'
+const originalSwitch = switchAdminTab;
+switchAdminTab = function(tab, el) {
+  originalSwitch(tab, el);
+  if (tab === 'identity') {
+    setTimeout(initAdminCredentialsUI, 100); // esperar a que se renderice
+  }
+};
+
+// También llamar al cargar la página por si ya está visible
+document.addEventListener('DOMContentLoaded', function() {
+  if (document.getElementById('tab-identity').classList.contains('active')) {
+    setTimeout(initAdminCredentialsUI, 200);
+  }
+});
+
+// ==================== INICIALIZACIÓN ====================
+(function init(){
+  loadDataFromCloud();
+})();
 </script>
 
 </body>
