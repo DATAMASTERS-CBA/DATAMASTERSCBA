@@ -1175,7 +1175,7 @@ footer {
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
         <div><h3 style="margin-bottom:20px;font-size:1.05rem;font-weight:700">Identidad Corporativa</h3><div class="form-group"><label>Nombre de la tienda</label><input type="text" id="idStoreName" placeholder="TechParts Store" oninput="updateIdentityPreview()"></div><div class="form-group"><label>Slogan / Descripción</label><input type="text" id="idSlogan" placeholder="Especialistas en repuestos para notebooks" oninput="updateIdentityPreview()"></div><div class="form-group"><label>Logo de la tienda</label><div class="logo-selector-grid" id="logoSelectorGrid"></div><div class="logo-preview-current"><div class="current-icon" id="currentLogoPreview">💻</div><div class="current-text">Logo actual</div></div></div><div class="form-group"><label>WhatsApp</label><input type="text" id="idWA" placeholder="+54 9 351 000-0000"></div><div class="form-group"><label>Email de contacto</label><input type="email" id="idEmail" placeholder="contacto@techparts.com"></div><div class="form-group"><label>Dirección física</label><input type="text" id="idAddress" placeholder="Av. Colón 123, Córdoba"></div><div class="form-row"><div class="form-group"><label>Horario de atención</label><input type="text" id="idHours" placeholder="9:00 - 18:00"></div><div class="form-group"><label>Días de apertura</label><input type="text" id="idDays" placeholder="Lun - Vie"></div></div>
           
-          <!-- NUEVOS CAMPOS: USUARIO Y CONTRASEÑA ADMIN (SE ALMACENAN EN FIREBASE) -->
+          <!-- BLOQUE DE CREDENCIALES (exactamente como en tu fragmento) -->
           <div style="border-top:1px solid var(--border);padding-top:20px;margin-top:10px">
             <h4 style="font-size:0.95rem;font-weight:700;margin-bottom:12px">🔐 Credenciales de Administrador</h4>
             <div class="form-group"><label>Usuario Administrador</label><input type="text" id="idAdminUser" placeholder="Usuario del admin"></div>
@@ -1350,7 +1350,6 @@ let DB = {
     textColors: { main: '#1A1A2E', secondary: '#555', tertiary: '#888', border: '#E0E0E0', bg: '#F5F5F5', surface: '#FFF' },
     autoContrast: false,
     quickFilters: ['Todos', 'Pantalla', 'Teclado', 'Batería', 'Cargador', 'Placa Madre', 'Memoria RAM', 'Disco SSD', 'Procesador'],
-    // Credenciales del administrador (se almacenan en Firebase, nunca en el HTML)
     adminUser: null,
     adminPass: null
   }
@@ -1433,7 +1432,6 @@ function _fixDB() {
   if (DB.config.quickFilters[0] !== 'Todos') {
     DB.config.quickFilters = ['Todos', ...DB.config.quickFilters.filter(f => f !== 'Todos')];
   }
-  // No asignamos valores por defecto a adminUser/adminPass, solo dejamos null si no existen.
 }
 
 function setupRealtimeSync() {
@@ -1461,9 +1459,8 @@ function setupRealtimeSync() {
           _fixDB();
           if (currentUser) { const updated = DB.users.find(u => u.email === currentUser.email); if (updated) { currentUser = updated; updateAuthUI(); } }
           renderProducts(); renderInventoryTable(); renderStats(); renderAllOrders(); renderDeliveredList(); renderClientsTable(); renderHistoryList();
-          renderFiltersAdmin(); // Actualizar lista de filtros en admin
-          createQuickFilters(); // Regenerar botones en tienda
-          // Verificar si hay admin configurado
+          renderFiltersAdmin();
+          createQuickFilters();
           checkAdminSetup();
         } catch(e) { console.warn(e); }
       }
@@ -1761,7 +1758,6 @@ function loadDataFromCloud() {
 
 // ==================== FUNCIONES DE AUTENTICACIÓN ====================
 function checkAdminSetup() {
-  // Mostrar u ocultar el botón de configuración de admin en el login
   const container = document.getElementById('setupAdminContainer');
   if (!container) return;
   if (DB.config.adminUser && DB.config.adminPass) {
@@ -1836,7 +1832,6 @@ function doLogin() {
   const normalizedUser = normalizeStr(user);
   const normalizedPass = normalizeStr(pass);
   
-  // Verificar contra credenciales almacenadas en Firebase (DB.config)
   const adminUser = DB.config.adminUser;
   const adminPass = DB.config.adminPass;
   if (adminUser && adminPass) {
@@ -2091,9 +2086,9 @@ function renderLogoSelector(){ const c=document.getElementById('logoSelectorGrid
 function selectLogo(icon,el){ DB.config.logoIcon=icon; saveFullData(); updateHeaderLogo(); renderLogoSelector(); notify('✅ Logo actualizado'); }
 function updateHeaderLogo(){ const i=document.getElementById('headerLogoIcon'); if(i)i.textContent=DB.config.logoIcon||'💻'; }
 function updateHeaderStoreName(){ const name=DB.config.storeName||'TechParts Store'; const h=document.getElementById('headerStoreName'); if(h){ const p=name.split(/(\s.+)/); if(p.length>1) h.innerHTML=`${escapeHtml(p[0])}<span>${escapeHtml(p[1]||'')}</span>`; else h.innerHTML=escapeHtml(name); } document.title=name; }
-function loadIdentityForm(){ const c=DB.config; document.getElementById('idStoreName').value=c.storeName||''; document.getElementById('idSlogan').value=c.slogan||''; document.getElementById('idWA').value=c.wa||''; document.getElementById('idEmail').value=c.email||''; document.getElementById('idAddress').value=c.address||''; document.getElementById('idHours').value=c.hours||''; document.getElementById('idDays').value=c.days||''; // Cargar credenciales admin (la contraseña no se muestra) document.getElementById('idAdminUser').value=c.adminUser||''; document.getElementById('idAdminPass').value=''; updateIdentityPreview(); renderLogoSelector(); }
+function loadIdentityForm(){ const c=DB.config; document.getElementById('idStoreName').value=c.storeName||''; document.getElementById('idSlogan').value=c.slogan||''; document.getElementById('idWA').value=c.wa||''; document.getElementById('idEmail').value=c.email||''; document.getElementById('idAddress').value=c.address||''; document.getElementById('idHours').value=c.hours||''; document.getElementById('idDays').value=c.days||''; document.getElementById('idAdminUser').value=c.adminUser||''; document.getElementById('idAdminPass').value=''; updateIdentityPreview(); renderLogoSelector(); }
 function updateIdentityPreview(){ const name=document.getElementById('idStoreName')?.value||'TechParts Store'; const slogan=document.getElementById('idSlogan')?.value||''; const wa=document.getElementById('idWA')?.value||''; const email=document.getElementById('idEmail')?.value||''; const addr=document.getElementById('idAddress')?.value||''; document.getElementById('previewStoreName').textContent=name; document.getElementById('previewSlogan').textContent=slogan; const contact=document.getElementById('previewContact'); if(contact) contact.innerHTML=[wa?`📱 ${escapeHtml(wa)}`:'',email?`✉️ ${escapeHtml(email)}`:'',addr?`📍 ${escapeHtml(addr)}`:''].filter(Boolean).join('<br>'); }
-function saveIdentity(){ DB.config.storeName=document.getElementById('idStoreName').value.trim()||'TechParts Store'; DB.config.slogan=document.getElementById('idSlogan').value.trim(); DB.config.wa=document.getElementById('idWA').value.trim(); DB.config.email=document.getElementById('idEmail').value.trim(); DB.config.address=document.getElementById('idAddress').value.trim(); DB.config.hours=document.getElementById('idHours').value.trim(); DB.config.days=document.getElementById('idDays').value.trim(); // Guardar credenciales admin const newUser=document.getElementById('idAdminUser').value.trim(); if(newUser) DB.config.adminUser=newUser; const newPass=document.getElementById('idAdminPass').value; if(newPass && newPass.length>=6) DB.config.adminPass=newPass; // Si la contraseña está vacía, no se cambia saveFullData(); updateFooter(); updateHeaderStoreName(); updateHeaderLogo(); notify('✅ Identidad guardada'); }
+function saveIdentity(){ DB.config.storeName=document.getElementById('idStoreName').value.trim()||'TechParts Store'; DB.config.slogan=document.getElementById('idSlogan').value.trim(); DB.config.wa=document.getElementById('idWA').value.trim(); DB.config.email=document.getElementById('idEmail').value.trim(); DB.config.address=document.getElementById('idAddress').value.trim(); DB.config.hours=document.getElementById('idHours').value.trim(); DB.config.days=document.getElementById('idDays').value.trim(); const newUser=document.getElementById('idAdminUser').value.trim(); if(newUser) DB.config.adminUser=newUser; const newPass=document.getElementById('idAdminPass').value; if(newPass && newPass.length>=6) DB.config.adminPass=newPass; saveFullData(); updateFooter(); updateHeaderStoreName(); updateHeaderLogo(); notify('✅ Identidad guardada'); }
 function updateFooter(){ const c=DB.config; const n=c.storeName||'TechParts Store'; const fs=document.getElementById('footerStoreName'); if(fs)fs.textContent=n; const fc=document.getElementById('footerCopy'); if(fc)fc.textContent=n; const fd=document.getElementById('footerDesc'); if(fd)fd.textContent=c.slogan||'Especialistas en repuestos'; const fw=document.getElementById('footerWA'); if(fw){ fw.textContent=`📱 ${c.wa||'WhatsApp'}`; fw.href=c.wa?`https://wa.me/${c.wa.replace(/\D/g,'')}`:'#'; } const fe=document.getElementById('footerEmail'); if(fe){ fe.textContent=`✉️ ${c.email||'Email'}`; fe.href=c.email?`mailto:${c.email}`:'#'; } const fa=document.getElementById('footerAddress'); if(fa)fa.textContent=`📍 ${c.address||'Dirección'}`; const fh=document.getElementById('footerHours'); if(fh)fh.textContent=`⏰ ${c.hours||'9:00-18:00'}`; const fd2=document.getElementById('footerDays'); if(fd2)fd2.textContent=`📅 ${c.days||'Lun-Vie'}`; }
 function renderSeasonalGrid(){ const g=document.getElementById('seasonalGrid'); if(!g)return; g.innerHTML=Object.entries(seasonalBackgrounds).map(([k,v])=>`<div class="seasonal-card" onclick="applySeasonalBg('${k}')" style="background:${v.gradient}"><div style="font-size:32px">${v.icon}</div><div>${v.name}</div></div>`).join(''); }
 function applySeasonalBg(k){ const bg=seasonalBackgrounds[k]; if(!bg)return; document.body.style.background=bg.gradient; DB.config.seasonalBg=k; DB.config.autoSeasonal=false; saveFullData(); notify(`🎨 ${bg.name} aplicado`); }
@@ -2149,7 +2144,6 @@ function ensureAdminCredentialsModal() {
 
 function openAdminCredentialsModal() {
   ensureAdminCredentialsModal();
-  // precargar valores actuales
   const currentUser = DB.config.adminUser || '';
   document.getElementById('adminNewUser').value = currentUser;
   document.getElementById('adminNewPass').value = '';
@@ -2176,10 +2170,8 @@ function saveAdminCredentials() {
   DB.config.adminUser = newUser;
   if (newPass) DB.config.adminPass = newPass;
   saveFullData();
-  // Actualizar también el campo del formulario de identidad (si existe)
   const userField = document.getElementById('idAdminUser');
   if (userField) userField.value = newUser;
-  // Si la sesión actual es admin, actualizar la UI de autenticación
   if (currentUser && currentUser.role === 'admin') {
     currentUser.email = newUser;
     updateAuthUI();
@@ -2191,7 +2183,6 @@ function saveAdminCredentials() {
 function initAdminCredentialsUI() {
   const identitySection = document.getElementById('tab-identity');
   if (!identitySection) return;
-  // Buscar el título "Credenciales de Administrador"
   const headers = identitySection.querySelectorAll('h4');
   let target = null;
   for (const h of headers) {
@@ -2201,7 +2192,6 @@ function initAdminCredentialsUI() {
     }
   }
   if (!target) return;
-  // Si ya tiene el icono, no agregar de nuevo
   if (target.querySelector('.admin-key-icon')) return;
   const keySpan = document.createElement('span');
   keySpan.className = 'admin-key-icon';
@@ -2214,16 +2204,14 @@ function initAdminCredentialsUI() {
   target.appendChild(keySpan);
 }
 
-// Modificar switchAdminTab para llamar a initAdminCredentialsUI cuando se muestre 'identity'
 const originalSwitch = switchAdminTab;
 switchAdminTab = function(tab, el) {
   originalSwitch(tab, el);
   if (tab === 'identity') {
-    setTimeout(initAdminCredentialsUI, 100); // esperar a que se renderice
+    setTimeout(initAdminCredentialsUI, 100);
   }
 };
 
-// También llamar al cargar la página por si ya está visible
 document.addEventListener('DOMContentLoaded', function() {
   if (document.getElementById('tab-identity').classList.contains('active')) {
     setTimeout(initAdminCredentialsUI, 200);
