@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Data-Masters ventas</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -165,16 +165,7 @@ if (!_initFirebase()) {
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { 
-  font-family: var(--font); 
-  background: var(--bg); 
-  color: var(--text); 
-  min-height: 100vh; 
-  transition: background 0.2s, color 0.2s; 
-  background-position: center center !important; 
-  background-attachment: fixed !important;
-  -webkit-overflow-scrolling: touch;
-}
+body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; transition: var(--transition); background-position: center center !important; background-attachment: fixed !important; }
 
 /* Panel de administración con fondo sólido para que no herede el fondo de pantalla */
 #adminView {
@@ -199,13 +190,9 @@ body {
 #header {
   background: var(--header-bg);
   backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  position: sticky; 
-  top: 0; 
-  z-index: 1000;
+  position: sticky; top: 0; z-index: 1000;
   padding: 0 24px;
   box-shadow: 0 2px 20px rgba(0,0,0,0.2);
-  will-change: transform;
 }
 .header-inner {
   max-width: 1400px; margin: 0 auto;
@@ -334,7 +321,7 @@ body {
   border-radius: var(--radius);
   border: 1px solid var(--border);
   overflow: hidden;
-  transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+  transition: var(--transition);
   cursor: pointer;
   display: flex; flex-direction: column;
   position: relative;
@@ -860,13 +847,7 @@ footer {
 .share-item:hover .share-icon { transform: scale(1.12); }
 .share-item span { font-size: 0.75rem; font-weight: 600; color: var(--text2); }
 
-/* ===== MEJORAS PARA MÓVIL: eliminar backdrop-filter y optimizar scroll ===== */
 @media (max-width: 768px) {
-  #header {
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-    padding: 0 12px;
-  }
   .header-inner { flex-wrap: wrap; height: auto; padding: 10px 0; gap: 10px; }
   .search-wrap { order: 3; width: 100%; max-width: none; }
   .product-detail-grid { grid-template-columns: 1fr; }
@@ -879,16 +860,6 @@ footer {
   .new-sale-icon { font-size: 36px; }
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
   .stat-val { font-size: 1.4rem; }
-  /* Reducir animaciones en móviles */
-  .banner-slide { transition: opacity 0.3s ease; }
-  .product-card:hover { transform: none; }
-  .product-card:hover .card-img-wrap img { transform: none; }
-  .btn-cart:hover { transform: none; }
-  .new-sale-card:hover { transform: none; }
-  .theme-card:hover { transform: none; }
-  .logo-option:hover { transform: none; }
-  .seasonal-card:hover { transform: none; }
-  .btn-primary:hover { transform: none; }
 }
 
 .page-loading {
@@ -1157,7 +1128,8 @@ footer {
 
     <div class="admin-section" id="tab-identity">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
-        <div><h3 style="margin-bottom:20px;font-size:1.05rem;font-weight:700">Identidad Corporativa</h3>
+        <div>
+          <h3 style="margin-bottom:20px;font-size:1.05rem;font-weight:700">Identidad Corporativa</h3>
           <div class="form-group"><label>Nombre de la tienda</label><input type="text" id="idStoreName" placeholder="TechParts Store" oninput="updateIdentityPreview()"></div>
           <div class="form-group"><label>Slogan / Descripción</label><input type="text" id="idSlogan" placeholder="Especialistas en repuestos para notebooks" oninput="updateIdentityPreview()"></div>
           <div class="form-group"><label>Logo de la tienda</label><div class="logo-selector-grid" id="logoSelectorGrid"></div><div class="logo-preview-current"><div class="current-icon" id="currentLogoPreview">💻</div><div class="current-text">Logo actual</div></div></div>
@@ -1165,8 +1137,8 @@ footer {
           <div class="form-group"><label>Email de contacto</label><input type="email" id="idEmail" placeholder="contacto@techparts.com"></div>
           <div class="form-group"><label>Dirección física</label><input type="text" id="idAddress" placeholder="Av. Colón 123, Córdoba"></div>
           <div class="form-row"><div class="form-group"><label>Horario de atención</label><input type="text" id="idHours" placeholder="9:00 - 18:00"></div><div class="form-group"><label>Días de apertura</label><input type="text" id="idDays" placeholder="Lun - Vie"></div></div>
-          
-          <!-- NUEVOS CAMPOS: USUARIO Y CONTRASEÑA ADMIN (SE ALMACENAN EN FIREBASE) -->
+
+          <!-- NUEVO BLOQUE: CREDENCIALES DE ADMINISTRADOR -->
           <div style="border-top:1px solid var(--border);padding-top:20px;margin-top:10px">
             <h4 style="font-size:0.95rem;font-weight:700;margin-bottom:12px">🔐 Credenciales de Administrador</h4>
             <div class="form-group"><label>Usuario Administrador</label><input type="text" id="idAdminUser" placeholder="Usuario del admin"></div>
@@ -1176,7 +1148,10 @@ footer {
 
           <button class="btn-primary" onclick="saveIdentity()">💾 Guardar Identidad</button>
         </div>
-        <div><h3 style="margin-bottom:20px;font-size:1.05rem;font-weight:700">Vista previa</h3><div class="identity-preview"><div class="store-name" id="previewStoreName">TechParts Store</div><div class="store-sub" id="previewSlogan">Especialistas en repuestos para notebooks</div><div style="margin-top:20px;font-size:0.85rem;opacity:0.7;line-height:2"><div id="previewContact"></div></div></div></div>
+        <div>
+          <h3 style="margin-bottom:20px;font-size:1.05rem;font-weight:700">Vista previa</h3>
+          <div class="identity-preview"><div class="store-name" id="previewStoreName">TechParts Store</div><div class="store-sub" id="previewSlogan">Especialistas en repuestos para notebooks</div><div style="margin-top:20px;font-size:0.85rem;opacity:0.7;line-height:2"><div id="previewContact"></div></div></div>
+        </div>
       </div>
     </div>
   </div>
@@ -1298,7 +1273,7 @@ let DB = {
     textColors: { main: '#1A1A2E', secondary: '#555', tertiary: '#888', border: '#E0E0E0', bg: '#F5F5F5', surface: '#FFF' },
     autoContrast: false,
     quickFilters: ['Todos', 'Pantalla', 'Teclado', 'Batería', 'Cargador', 'Placa Madre', 'Memoria RAM', 'Disco SSD', 'Procesador'],
-    // Credenciales del administrador (se almacenan en Firebase, nunca en el HTML)
+    // Credenciales del administrador (se almacenan en Firebase)
     adminUser: 'dmadmin23',
     adminPass: 'alexalex23'
   }
@@ -1998,9 +1973,13 @@ function renderLogoSelector(){ const c=document.getElementById('logoSelectorGrid
 function selectLogo(icon,el){ DB.config.logoIcon=icon; saveFullData(); updateHeaderLogo(); renderLogoSelector(); notify('✅ Logo actualizado'); }
 function updateHeaderLogo(){ const i=document.getElementById('headerLogoIcon'); if(i)i.textContent=DB.config.logoIcon||'💻'; }
 function updateHeaderStoreName(){ const name=DB.config.storeName||'TechParts Store'; const h=document.getElementById('headerStoreName'); if(h){ const p=name.split(/(\s.+)/); if(p.length>1) h.innerHTML=`${escapeHtml(p[0])}<span>${escapeHtml(p[1]||'')}</span>`; else h.innerHTML=escapeHtml(name); } document.title=name; }
-function loadIdentityForm(){ const c=DB.config; document.getElementById('idStoreName').value=c.storeName||''; document.getElementById('idSlogan').value=c.slogan||''; document.getElementById('idWA').value=c.wa||''; document.getElementById('idEmail').value=c.email||''; document.getElementById('idAddress').value=c.address||''; document.getElementById('idHours').value=c.hours||''; document.getElementById('idDays').value=c.days||''; // Cargar credenciales admin (la contraseña no se muestra) document.getElementById('idAdminUser').value=c.adminUser||''; document.getElementById('idAdminPass').value=''; updateIdentityPreview(); renderLogoSelector(); }
+function loadIdentityForm(){ const c=DB.config; document.getElementById('idStoreName').value=c.storeName||''; document.getElementById('idSlogan').value=c.slogan||''; document.getElementById('idWA').value=c.wa||''; document.getElementById('idEmail').value=c.email||''; document.getElementById('idAddress').value=c.address||''; document.getElementById('idHours').value=c.hours||''; document.getElementById('idDays').value=c.days||''; // Cargar credenciales admin (la contraseña no se muestra)
+  document.getElementById('idAdminUser').value=c.adminUser||''; document.getElementById('idAdminPass').value='';
+  updateIdentityPreview(); renderLogoSelector(); }
 function updateIdentityPreview(){ const name=document.getElementById('idStoreName')?.value||'TechParts Store'; const slogan=document.getElementById('idSlogan')?.value||''; const wa=document.getElementById('idWA')?.value||''; const email=document.getElementById('idEmail')?.value||''; const addr=document.getElementById('idAddress')?.value||''; document.getElementById('previewStoreName').textContent=name; document.getElementById('previewSlogan').textContent=slogan; const contact=document.getElementById('previewContact'); if(contact) contact.innerHTML=[wa?`📱 ${escapeHtml(wa)}`:'',email?`✉️ ${escapeHtml(email)}`:'',addr?`📍 ${escapeHtml(addr)}`:''].filter(Boolean).join('<br>'); }
-function saveIdentity(){ DB.config.storeName=document.getElementById('idStoreName').value.trim()||'TechParts Store'; DB.config.slogan=document.getElementById('idSlogan').value.trim(); DB.config.wa=document.getElementById('idWA').value.trim(); DB.config.email=document.getElementById('idEmail').value.trim(); DB.config.address=document.getElementById('idAddress').value.trim(); DB.config.hours=document.getElementById('idHours').value.trim(); DB.config.days=document.getElementById('idDays').value.trim(); // Guardar credenciales admin const newUser=document.getElementById('idAdminUser').value.trim(); if(newUser) DB.config.adminUser=newUser; const newPass=document.getElementById('idAdminPass').value; if(newPass && newPass.length>=6) DB.config.adminPass=newPass; // Si la contraseña está vacía, no se cambia saveFullData(); updateFooter(); updateHeaderStoreName(); updateHeaderLogo(); notify('✅ Identidad guardada'); }
+function saveIdentity(){ DB.config.storeName=document.getElementById('idStoreName').value.trim()||'TechParts Store'; DB.config.slogan=document.getElementById('idSlogan').value.trim(); DB.config.wa=document.getElementById('idWA').value.trim(); DB.config.email=document.getElementById('idEmail').value.trim(); DB.config.address=document.getElementById('idAddress').value.trim(); DB.config.hours=document.getElementById('idHours').value.trim(); DB.config.days=document.getElementById('idDays').value.trim(); // Guardar credenciales admin
+  const newUser=document.getElementById('idAdminUser').value.trim(); if(newUser) DB.config.adminUser=newUser; const newPass=document.getElementById('idAdminPass').value; if(newPass && newPass.length>=6) DB.config.adminPass=newPass; // Si la contraseña está vacía, no se cambia
+  saveFullData(); updateFooter(); updateHeaderStoreName(); updateHeaderLogo(); notify('✅ Identidad guardada'); }
 function updateFooter(){ const c=DB.config; const n=c.storeName||'TechParts Store'; const fs=document.getElementById('footerStoreName'); if(fs)fs.textContent=n; const fc=document.getElementById('footerCopy'); if(fc)fc.textContent=n; const fd=document.getElementById('footerDesc'); if(fd)fd.textContent=c.slogan||'Especialistas en repuestos'; const fw=document.getElementById('footerWA'); if(fw){ fw.textContent=`📱 ${c.wa||'WhatsApp'}`; fw.href=c.wa?`https://wa.me/${c.wa.replace(/\D/g,'')}`:'#'; } const fe=document.getElementById('footerEmail'); if(fe){ fe.textContent=`✉️ ${c.email||'Email'}`; fe.href=c.email?`mailto:${c.email}`:'#'; } const fa=document.getElementById('footerAddress'); if(fa)fa.textContent=`📍 ${c.address||'Dirección'}`; const fh=document.getElementById('footerHours'); if(fh)fh.textContent=`⏰ ${c.hours||'9:00-18:00'}`; const fd2=document.getElementById('footerDays'); if(fd2)fd2.textContent=`📅 ${c.days||'Lun-Vie'}`; }
 function renderSeasonalGrid(){ const g=document.getElementById('seasonalGrid'); if(!g)return; g.innerHTML=Object.entries(seasonalBackgrounds).map(([k,v])=>`<div class="seasonal-card" onclick="applySeasonalBg('${k}')" style="background:${v.gradient}"><div style="font-size:32px">${v.icon}</div><div>${v.name}</div></div>`).join(''); }
 function applySeasonalBg(k){ const bg=seasonalBackgrounds[k]; if(!bg)return; document.body.style.background=bg.gradient; DB.config.seasonalBg=k; DB.config.autoSeasonal=false; saveFullData(); notify(`🎨 ${bg.name} aplicado`); }
@@ -2022,7 +2001,7 @@ function openUserMenu(){ if(!currentUser)return; document.getElementById('userPr
 function openEditProfileModal(){ if(!currentUser)return; const html=`<div class="modal-overlay" id="editProfileModal"><div class="modal-box"><div class="modal-header"><h2>✏️ Editar Perfil</h2><button class="modal-close" onclick="closeModal('editProfileModal')">✕</button></div><div class="modal-body"><div class="form-group"><label>Nombre</label><input type="text" id="editProfileName" value="${escapeHtml(currentUser.name)}"></div><div class="form-group"><label>Teléfono</label><input type="tel" id="editProfilePhone" value="${escapeHtml(currentUser.phone||'')}"></div><div class="form-group"><label>Dirección</label><input type="text" id="editProfileAddress" value="${escapeHtml(currentUser.address||'')}"></div><div class="form-group"><label>Nueva contraseña</label><input type="password" id="editProfilePassword" placeholder="Dejar vacío para no cambiar"></div><button class="btn-primary" onclick="saveProfileChanges()">Guardar</button><button class="btn-secondary" onclick="closeModal('editProfileModal')">Cancelar</button></div></div></div>`; document.body.insertAdjacentHTML('beforeend',html); document.getElementById('editProfileModal').classList.add('open'); }
 function saveProfileChanges(){ if(!currentUser)return; const newName=document.getElementById('editProfileName').value.trim(); const newPhone=document.getElementById('editProfilePhone').value.trim(); const newAddress=document.getElementById('editProfileAddress').value.trim(); const newPass=document.getElementById('editProfilePassword').value; if(!newName){ notify('⚠️ Nombre requerido','error'); return; } const idx=DB.users.findIndex(u=>u.email===currentUser.email); if(idx!==-1){ DB.users[idx].name=newName; DB.users[idx].phone=newPhone; DB.users[idx].address=newAddress; DB.users[idx].updatedAt=Date.now(); if(newPass.length>=6) DB.users[idx].password=newPass; } currentUser.name=newName; currentUser.phone=newPhone; currentUser.address=newAddress; if(newPass.length>=6) currentUser.password=newPass; saveFullData(); updateAuthUI(); closeModal('editProfileModal'); notify('✅ Perfil actualizado'); }
 
-// ==================== ADMIN CREDENTIALS MODAL (NUEVO) ====================
+// ==================== ADMIN CREDENTIALS MODAL ====================
 let adminCredModalInitialized = false;
 
 function ensureAdminCredentialsModal() {
