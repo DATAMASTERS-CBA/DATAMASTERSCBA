@@ -165,7 +165,23 @@ if (!_initFirebase()) {
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; transition: var(--transition); background-position: center center !important; background-attachment: fixed !important; }
+body { 
+  font-family: var(--font); 
+  background: var(--bg); 
+  color: var(--text); 
+  min-height: 100vh; 
+  transition: background 0.2s, color 0.2s; 
+  background-position: center center !important; 
+  background-attachment: fixed !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* En móvil desactivamos attachment fixed para evitar parpadeos */
+@media (max-width: 768px) {
+  body {
+    background-attachment: scroll !important;
+  }
+}
 
 /* Panel de administración con fondo sólido para que no herede el fondo de pantalla */
 #adminView {
@@ -190,9 +206,13 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
 #header {
   background: var(--header-bg);
   backdrop-filter: blur(12px);
-  position: sticky; top: 0; z-index: 1000;
+  -webkit-backdrop-filter: blur(12px);
+  position: sticky; 
+  top: 0; 
+  z-index: 1000;
   padding: 0 24px;
   box-shadow: 0 2px 20px rgba(0,0,0,0.2);
+  will-change: transform;
 }
 .header-inner {
   max-width: 1400px; margin: 0 auto;
@@ -321,7 +341,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); min-
   border-radius: var(--radius);
   border: 1px solid var(--border);
   overflow: hidden;
-  transition: var(--transition);
+  transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
   cursor: pointer;
   display: flex; flex-direction: column;
   position: relative;
@@ -847,7 +867,13 @@ footer {
 .share-item:hover .share-icon { transform: scale(1.12); }
 .share-item span { font-size: 0.75rem; font-weight: 600; color: var(--text2); }
 
+/* ===== MEJORAS PARA MÓVIL ===== */
 @media (max-width: 768px) {
+  #header {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    padding: 0 12px;
+  }
   .header-inner { flex-wrap: wrap; height: auto; padding: 10px 0; gap: 10px; }
   .search-wrap { order: 3; width: 100%; max-width: none; }
   .product-detail-grid { grid-template-columns: 1fr; }
@@ -860,6 +886,25 @@ footer {
   .new-sale-icon { font-size: 36px; }
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
   .stat-val { font-size: 1.4rem; }
+  /* Desactivar hover effects en móvil para evitar parpadeos */
+  .product-card:hover { transform: none !important; }
+  .product-card:hover .card-img-wrap img { transform: none !important; }
+  .btn-cart:hover { transform: none !important; }
+  .new-sale-card:hover { transform: none !important; }
+  .theme-card:hover { transform: none !important; }
+  .logo-option:hover { transform: none !important; }
+  .seasonal-card:hover { transform: none !important; }
+  .btn-primary:hover { transform: none !important; }
+  .btn-secondary:hover { transform: none !important; }
+  .theme-card:hover { transform: none !important; }
+  .logo-option:hover { transform: none !important; }
+  .seasonal-card:hover { transform: none !important; }
+  .btn-review:hover { transform: none !important; }
+  .banner-slide { transition: opacity 0.3s ease; }
+  /* Fondo fijo desactivado */
+  body {
+    background-attachment: scroll !important;
+  }
 }
 
 .page-loading {
@@ -1128,17 +1173,9 @@ footer {
 
     <div class="admin-section" id="tab-identity">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
-        <div>
-          <h3 style="margin-bottom:20px;font-size:1.05rem;font-weight:700">Identidad Corporativa</h3>
-          <div class="form-group"><label>Nombre de la tienda</label><input type="text" id="idStoreName" placeholder="TechParts Store" oninput="updateIdentityPreview()"></div>
-          <div class="form-group"><label>Slogan / Descripción</label><input type="text" id="idSlogan" placeholder="Especialistas en repuestos para notebooks" oninput="updateIdentityPreview()"></div>
-          <div class="form-group"><label>Logo de la tienda</label><div class="logo-selector-grid" id="logoSelectorGrid"></div><div class="logo-preview-current"><div class="current-icon" id="currentLogoPreview">💻</div><div class="current-text">Logo actual</div></div></div>
-          <div class="form-group"><label>WhatsApp</label><input type="text" id="idWA" placeholder="+54 9 351 000-0000"></div>
-          <div class="form-group"><label>Email de contacto</label><input type="email" id="idEmail" placeholder="contacto@techparts.com"></div>
-          <div class="form-group"><label>Dirección física</label><input type="text" id="idAddress" placeholder="Av. Colón 123, Córdoba"></div>
-          <div class="form-row"><div class="form-group"><label>Horario de atención</label><input type="text" id="idHours" placeholder="9:00 - 18:00"></div><div class="form-group"><label>Días de apertura</label><input type="text" id="idDays" placeholder="Lun - Vie"></div></div>
-
-          <!-- NUEVO BLOQUE: CREDENCIALES DE ADMINISTRADOR -->
+        <div><h3 style="margin-bottom:20px;font-size:1.05rem;font-weight:700">Identidad Corporativa</h3><div class="form-group"><label>Nombre de la tienda</label><input type="text" id="idStoreName" placeholder="TechParts Store" oninput="updateIdentityPreview()"></div><div class="form-group"><label>Slogan / Descripción</label><input type="text" id="idSlogan" placeholder="Especialistas en repuestos para notebooks" oninput="updateIdentityPreview()"></div><div class="form-group"><label>Logo de la tienda</label><div class="logo-selector-grid" id="logoSelectorGrid"></div><div class="logo-preview-current"><div class="current-icon" id="currentLogoPreview">💻</div><div class="current-text">Logo actual</div></div></div><div class="form-group"><label>WhatsApp</label><input type="text" id="idWA" placeholder="+54 9 351 000-0000"></div><div class="form-group"><label>Email de contacto</label><input type="email" id="idEmail" placeholder="contacto@techparts.com"></div><div class="form-group"><label>Dirección física</label><input type="text" id="idAddress" placeholder="Av. Colón 123, Córdoba"></div><div class="form-row"><div class="form-group"><label>Horario de atención</label><input type="text" id="idHours" placeholder="9:00 - 18:00"></div><div class="form-group"><label>Días de apertura</label><input type="text" id="idDays" placeholder="Lun - Vie"></div></div>
+          
+          <!-- NUEVOS CAMPOS: USUARIO Y CONTRASEÑA ADMIN (SE ALMACENAN EN FIREBASE) -->
           <div style="border-top:1px solid var(--border);padding-top:20px;margin-top:10px">
             <h4 style="font-size:0.95rem;font-weight:700;margin-bottom:12px">🔐 Credenciales de Administrador</h4>
             <div class="form-group"><label>Usuario Administrador</label><input type="text" id="idAdminUser" placeholder="Usuario del admin"></div>
@@ -1148,10 +1185,7 @@ footer {
 
           <button class="btn-primary" onclick="saveIdentity()">💾 Guardar Identidad</button>
         </div>
-        <div>
-          <h3 style="margin-bottom:20px;font-size:1.05rem;font-weight:700">Vista previa</h3>
-          <div class="identity-preview"><div class="store-name" id="previewStoreName">TechParts Store</div><div class="store-sub" id="previewSlogan">Especialistas en repuestos para notebooks</div><div style="margin-top:20px;font-size:0.85rem;opacity:0.7;line-height:2"><div id="previewContact"></div></div></div>
-        </div>
+        <div><h3 style="margin-bottom:20px;font-size:1.05rem;font-weight:700">Vista previa</h3><div class="identity-preview"><div class="store-name" id="previewStoreName">TechParts Store</div><div class="store-sub" id="previewSlogan">Especialistas en repuestos para notebooks</div><div style="margin-top:20px;font-size:0.85rem;opacity:0.7;line-height:2"><div id="previewContact"></div></div></div></div>
       </div>
     </div>
   </div>
@@ -1233,7 +1267,50 @@ footer {
 <div class="modal-overlay" id="editDeliveryModal"><div class="modal-box"><div class="modal-header"><h2>✏️ Editar Entrega</h2><button class="modal-close" onclick="closeModal('editDeliveryModal')">✕</button></div><div class="modal-body"><input type="hidden" id="editDeliveryIndex"><div class="form-group"><label>Fecha</label><input type="datetime-local" id="editDeliveryDate"></div><div class="form-group"><label>Notas</label><textarea id="editDeliveryNotes" rows="3"></textarea></div><button class="btn-primary" onclick="saveDeliveryEdit()">Guardar</button><button class="btn-secondary" onclick="closeModal('editDeliveryModal')">Cancelar</button></div></div></div>
 <div class="modal-overlay" id="textColorModal"><div class="modal-box"><div class="modal-header"><h2>🎨 Colores</h2><button class="modal-close" onclick="closeModal('textColorModal')">✕</button></div><div class="modal-body"><div class="form-group"><label>Texto principal</label><input type="color" id="textColorMain"></div><div class="form-group"><label>Texto secundario</label><input type="color" id="textColorSec"></div><div class="form-group"><label>Texto terciario</label><input type="color" id="textColorTer"></div><div class="form-group"><label>Bordes</label><input type="color" id="borderColor"></div><div class="form-group"><label>Fondo</label><input type="color" id="bgColor"></div><div class="form-group"><label>Superficies</label><input type="color" id="surfaceColor"></div><button class="btn-primary" onclick="saveTextColors()">Guardar</button><button class="btn-secondary" onclick="resetTextColors()">Restaurar</button></div></div></div>
 <div class="modal-overlay" id="bgSelectorModal"><div class="modal-box"><div class="modal-header"><h2>🎨 Fondo</h2><button class="modal-close" onclick="closeModal('bgSelectorModal')">✕</button></div><div class="modal-body"><div><h3>Modo</h3><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px"><div class="bg-mode-option" onclick="selectFitMode('cover')">🖼️ Cubrir</div><div class="bg-mode-option" onclick="selectFitMode('contain')">📏 Contener</div><div class="bg-mode-option" onclick="selectFitMode('repeat')">🔲 Mosaico</div><div class="bg-mode-option" onclick="selectFitMode('stretch')">↔️ Estirar</div></div><input type="hidden" id="bgFitMode" value="cover"></div><div><h3>URL</h3><input type="text" id="bgUrlInput" placeholder="URL de imagen"><button class="btn-primary" onclick="applyUrlBg()">Aplicar URL</button></div><div><h3>Archivo</h3><input type="file" id="bgFileInput" accept="image/*"><button class="btn-primary" onclick="applyFileBg()">Subir imagen</button></div><button class="btn-secondary" onclick="resetBgToDefault()">Restaurar</button><button class="btn-secondary" onclick="closeModal('bgSelectorModal')">Cancelar</button></div></div></div>
-<div class="modal-overlay" id="authModal"><div class="modal-box"><div class="modal-header"><h2>👤 Acceso</h2><button class="modal-close" onclick="closeModal('authModal')">✕</button></div><div class="modal-body"><div class="auth-tabs"><button class="auth-tab active" onclick="switchAuthTab('login',this)">Iniciar sesión</button><button class="auth-tab" onclick="switchAuthTab('register',this)">Registrarse</button></div><div id="authLogin"><div class="form-group"><label>Usuario/Email</label><input type="text" id="loginUser"></div><div class="form-group"><label>Contraseña</label><input type="password" id="loginPass"></div><button class="btn-primary" onclick="doLogin()">Ingresar</button><div class="forgot-link"><a onclick="showRecovery()">¿Olvidaste tu contraseña?</a></div></div><div id="authRegister" style="display:none"><div class="form-group"><label>Nombre</label><input type="text" id="regName"></div><div class="form-group"><label>Email</label><input type="email" id="regEmail"></div><div class="form-group"><label>Teléfono</label><input type="tel" id="regPhone"></div><div class="form-group"><label>Dirección</label><input type="text" id="regAddress"></div><div class="form-group"><label>Contraseña</label><input type="password" id="regPass"></div><button class="btn-primary" onclick="doRegister()">Registrarse</button></div><div id="authRecovery" style="display:none"><button class="auth-tab" onclick="switchAuthTab('login')">← Volver</button><div class="form-group"><label>Email</label><input type="email" id="recoveryEmail"></div><button class="btn-primary" onclick="sendRecoveryEmail()">Enviar</button><div id="recoveryMsg"></div></div></div></div></div>
+<div class="modal-overlay" id="authModal"><div class="modal-box"><div class="modal-header"><h2>👤 Acceso</h2><button class="modal-close" onclick="closeModal('authModal')">✕</button></div><div class="modal-body">
+  <div class="auth-tabs"><button class="auth-tab active" onclick="switchAuthTab('login',this)">Iniciar sesión</button><button class="auth-tab" onclick="switchAuthTab('register',this)">Registrarse</button></div>
+  <div id="authLogin">
+    <div class="form-group"><label>Usuario/Email</label><input type="text" id="loginUser"></div>
+    <div class="form-group"><label>Contraseña</label><input type="password" id="loginPass"></div>
+    <button class="btn-primary" onclick="doLogin()">Ingresar</button>
+    <div class="forgot-link"><a onclick="showRecovery()">¿Olvidaste tu contraseña?</a></div>
+    <div id="setupAdminContainer" style="margin-top:12px;text-align:center;display:none;">
+      <button class="btn-secondary" onclick="openSetupAdminModal()" style="width:auto;">⚙️ Configurar administrador</button>
+    </div>
+  </div>
+  <div id="authRegister" style="display:none">
+    <div class="form-group"><label>Nombre</label><input type="text" id="regName"></div>
+    <div class="form-group"><label>Email</label><input type="email" id="regEmail"></div>
+    <div class="form-group"><label>Teléfono</label><input type="tel" id="regPhone"></div>
+    <div class="form-group"><label>Dirección</label><input type="text" id="regAddress"></div>
+    <div class="form-group"><label>Contraseña</label><input type="password" id="regPass"></div>
+    <button class="btn-primary" onclick="doRegister()">Registrarse</button>
+  </div>
+  <div id="authRecovery" style="display:none">
+    <button class="auth-tab" onclick="switchAuthTab('login')">← Volver</button>
+    <div class="form-group"><label>Email</label><input type="email" id="recoveryEmail"></div>
+    <button class="btn-primary" onclick="sendRecoveryEmail()">Enviar</button>
+    <div id="recoveryMsg"></div>
+  </div>
+</div></div></div>
+
+<!-- Modal para configurar administrador por primera vez -->
+<div class="modal-overlay" id="setupAdminModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2>⚙️ Configurar Administrador</h2>
+      <button class="modal-close" onclick="closeModal('setupAdminModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="margin-bottom:16px;">No hay un administrador configurado. Crea uno ahora:</p>
+      <div class="form-group"><label>Usuario</label><input type="text" id="setupAdminUser" placeholder="Usuario del admin"></div>
+      <div class="form-group"><label>Contraseña</label><input type="password" id="setupAdminPass" placeholder="Mínimo 6 caracteres"></div>
+      <button class="btn-primary" onclick="saveSetupAdmin()">✅ Guardar</button>
+      <button class="btn-secondary" onclick="closeModal('setupAdminModal')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="userMenuModal"><div class="modal-box"><div class="modal-header"><h2>👤 Mi cuenta</h2><button class="modal-close" onclick="closeModal('userMenuModal')">✕</button></div><div class="modal-body"><div id="userProfileInfo"></div><h4>Mis pedidos</h4><div id="myOrdersList" class="orders-list"></div><button class="btn-secondary" onclick="doLogout()">🚪 Cerrar sesión</button></div></div></div>
 <div class="modal-overlay" id="cartModal"><div class="modal-box wide"><div class="modal-header"><h2>🛒 Carrito</h2><button class="modal-close" onclick="closeModal('cartModal')">✕</button></div><div class="modal-body"><div id="cartContent"></div><div id="cartActions" style="display:none"><button class="btn-primary" onclick="openCheckout()">Pagar</button><button class="btn-secondary" onclick="clearCart()">Vaciar</button></div></div></div></div>
 <div class="modal-overlay" id="productModal"><div class="modal-box wide"><div class="modal-header"><h2 id="productModalTitle">Detalle</h2><button class="modal-close" onclick="closeModal('productModal')">✕</button></div><div class="modal-body"><div id="productDetailContent"></div></div></div></div>
@@ -1273,9 +1350,9 @@ let DB = {
     textColors: { main: '#1A1A2E', secondary: '#555', tertiary: '#888', border: '#E0E0E0', bg: '#F5F5F5', surface: '#FFF' },
     autoContrast: false,
     quickFilters: ['Todos', 'Pantalla', 'Teclado', 'Batería', 'Cargador', 'Placa Madre', 'Memoria RAM', 'Disco SSD', 'Procesador'],
-    // Credenciales del administrador (se almacenan en Firebase)
-    adminUser: 'dmadmin23',
-    adminPass: 'alexalex23'
+    // Credenciales del administrador (se almacenan en Firebase, nunca en el HTML)
+    adminUser: null,
+    adminPass: null
   }
 };
 
@@ -1356,9 +1433,7 @@ function _fixDB() {
   if (DB.config.quickFilters[0] !== 'Todos') {
     DB.config.quickFilters = ['Todos', ...DB.config.quickFilters.filter(f => f !== 'Todos')];
   }
-  // Asegurar credenciales admin
-  if (!DB.config.adminUser) DB.config.adminUser = 'dmadmin23';
-  if (!DB.config.adminPass) DB.config.adminPass = 'alexalex23';
+  // No asignamos valores por defecto a adminUser/adminPass, solo dejamos null si no existen.
 }
 
 function setupRealtimeSync() {
@@ -1388,6 +1463,8 @@ function setupRealtimeSync() {
           renderProducts(); renderInventoryTable(); renderStats(); renderAllOrders(); renderDeliveredList(); renderClientsTable(); renderHistoryList();
           renderFiltersAdmin(); // Actualizar lista de filtros en admin
           createQuickFilters(); // Regenerar botones en tienda
+          // Verificar si hay admin configurado
+          checkAdminSetup();
         } catch(e) { console.warn(e); }
       }
     },
@@ -1673,6 +1750,7 @@ function loadDataFromCloud() {
     addBgSelectorButton();
     renderFiltersAdmin();
     createQuickFilters();
+    checkAdminSetup();
     setTimeout(setupRealtimeSync, 2000);
     const loading = document.getElementById('pageLoading');
     if (loading) { loading.style.opacity = '0'; setTimeout(function() { loading.style.display = 'none'; }, 500); }
@@ -1682,6 +1760,36 @@ function loadDataFromCloud() {
 }
 
 // ==================== FUNCIONES DE AUTENTICACIÓN ====================
+function checkAdminSetup() {
+  // Mostrar u ocultar el botón de configuración de admin en el login
+  const container = document.getElementById('setupAdminContainer');
+  if (!container) return;
+  if (DB.config.adminUser && DB.config.adminPass) {
+    container.style.display = 'none';
+  } else {
+    container.style.display = 'block';
+  }
+}
+
+function openSetupAdminModal() {
+  openModal('setupAdminModal');
+  document.getElementById('setupAdminUser').value = '';
+  document.getElementById('setupAdminPass').value = '';
+}
+
+function saveSetupAdmin() {
+  const user = document.getElementById('setupAdminUser').value.trim();
+  const pass = document.getElementById('setupAdminPass').value;
+  if (!user || !pass) { notify('⚠️ Complete ambos campos', 'error'); return; }
+  if (pass.length < 6) { notify('⚠️ La contraseña debe tener al menos 6 caracteres', 'error'); return; }
+  DB.config.adminUser = user;
+  DB.config.adminPass = pass;
+  saveFullData();
+  closeModal('setupAdminModal');
+  notify('✅ Administrador configurado. Ahora puedes iniciar sesión.', 'success');
+  checkAdminSetup();
+}
+
 function saveToAutocomplete(username, password) {
   try {
     localStorage.setItem('techparts_last_user', JSON.stringify({ username, password, timestamp: Date.now() }));
@@ -1729,16 +1837,18 @@ function doLogin() {
   const normalizedPass = normalizeStr(pass);
   
   // Verificar contra credenciales almacenadas en Firebase (DB.config)
-  const adminUser = DB.config.adminUser || 'dmadmin23';
-  const adminPass = DB.config.adminPass || 'alexalex23';
-  if (normalizedUser === normalizeStr(adminUser) && normalizedPass === normalizeStr(adminPass)) {
-    currentUser = { name: 'Administrador', email: adminUser, role: 'admin', phone: '', address: '', updatedAt: Date.now() };
-    saveFullData();
-    updateAuthUI();
-    saveToAutocomplete(user, pass);
-    closeModal('authModal');
-    notify('✅ Bienvenido, Administrador', 'success');
-    return;
+  const adminUser = DB.config.adminUser;
+  const adminPass = DB.config.adminPass;
+  if (adminUser && adminPass) {
+    if (normalizedUser === normalizeStr(adminUser) && normalizedPass === normalizeStr(adminPass)) {
+      currentUser = { name: 'Administrador', email: adminUser, role: 'admin', phone: '', address: '', updatedAt: Date.now() };
+      saveFullData();
+      updateAuthUI();
+      saveToAutocomplete(user, pass);
+      closeModal('authModal');
+      notify('✅ Bienvenido, Administrador', 'success');
+      return;
+    }
   }
   
   const found = DB.users.find(u => {
@@ -1809,7 +1919,15 @@ function updateAuthUI() {
     if (adminBtn) adminBtn.style.display = 'none'; 
   } 
 }
-function openAuthModal() { document.getElementById('loginUser').value = ''; document.getElementById('loginPass').value = ''; document.getElementById('authRecovery').style.display = 'none'; document.getElementById('authLogin').style.display = 'block'; document.getElementById('authRegister').style.display = 'none'; openModal('authModal'); setTimeout(() => { loadAutocompleteForLogin(); setupUserDatalist(); }, 100); }
+function openAuthModal() { 
+  document.getElementById('loginUser').value = ''; 
+  document.getElementById('loginPass').value = ''; 
+  document.getElementById('authRecovery').style.display = 'none'; 
+  document.getElementById('authLogin').style.display = 'block'; 
+  document.getElementById('authRegister').style.display = 'none'; 
+  openModal('authModal'); 
+  setTimeout(() => { loadAutocompleteForLogin(); setupUserDatalist(); checkAdminSetup(); }, 100); 
+}
 function switchAuthTab(tab, el) { document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active')); if (el) el.classList.add('active'); document.getElementById('authLogin').style.display = tab === 'login' ? 'block' : 'none'; document.getElementById('authRegister').style.display = tab === 'register' ? 'block' : 'none'; document.getElementById('authRecovery').style.display = 'none'; }
 function showRecovery() { document.getElementById('authLogin').style.display = 'none'; document.getElementById('authRegister').style.display = 'none'; document.getElementById('authRecovery').style.display = 'block'; }
 
@@ -1973,13 +2091,9 @@ function renderLogoSelector(){ const c=document.getElementById('logoSelectorGrid
 function selectLogo(icon,el){ DB.config.logoIcon=icon; saveFullData(); updateHeaderLogo(); renderLogoSelector(); notify('✅ Logo actualizado'); }
 function updateHeaderLogo(){ const i=document.getElementById('headerLogoIcon'); if(i)i.textContent=DB.config.logoIcon||'💻'; }
 function updateHeaderStoreName(){ const name=DB.config.storeName||'TechParts Store'; const h=document.getElementById('headerStoreName'); if(h){ const p=name.split(/(\s.+)/); if(p.length>1) h.innerHTML=`${escapeHtml(p[0])}<span>${escapeHtml(p[1]||'')}</span>`; else h.innerHTML=escapeHtml(name); } document.title=name; }
-function loadIdentityForm(){ const c=DB.config; document.getElementById('idStoreName').value=c.storeName||''; document.getElementById('idSlogan').value=c.slogan||''; document.getElementById('idWA').value=c.wa||''; document.getElementById('idEmail').value=c.email||''; document.getElementById('idAddress').value=c.address||''; document.getElementById('idHours').value=c.hours||''; document.getElementById('idDays').value=c.days||''; // Cargar credenciales admin (la contraseña no se muestra)
-  document.getElementById('idAdminUser').value=c.adminUser||''; document.getElementById('idAdminPass').value='';
-  updateIdentityPreview(); renderLogoSelector(); }
+function loadIdentityForm(){ const c=DB.config; document.getElementById('idStoreName').value=c.storeName||''; document.getElementById('idSlogan').value=c.slogan||''; document.getElementById('idWA').value=c.wa||''; document.getElementById('idEmail').value=c.email||''; document.getElementById('idAddress').value=c.address||''; document.getElementById('idHours').value=c.hours||''; document.getElementById('idDays').value=c.days||''; // Cargar credenciales admin (la contraseña no se muestra) document.getElementById('idAdminUser').value=c.adminUser||''; document.getElementById('idAdminPass').value=''; updateIdentityPreview(); renderLogoSelector(); }
 function updateIdentityPreview(){ const name=document.getElementById('idStoreName')?.value||'TechParts Store'; const slogan=document.getElementById('idSlogan')?.value||''; const wa=document.getElementById('idWA')?.value||''; const email=document.getElementById('idEmail')?.value||''; const addr=document.getElementById('idAddress')?.value||''; document.getElementById('previewStoreName').textContent=name; document.getElementById('previewSlogan').textContent=slogan; const contact=document.getElementById('previewContact'); if(contact) contact.innerHTML=[wa?`📱 ${escapeHtml(wa)}`:'',email?`✉️ ${escapeHtml(email)}`:'',addr?`📍 ${escapeHtml(addr)}`:''].filter(Boolean).join('<br>'); }
-function saveIdentity(){ DB.config.storeName=document.getElementById('idStoreName').value.trim()||'TechParts Store'; DB.config.slogan=document.getElementById('idSlogan').value.trim(); DB.config.wa=document.getElementById('idWA').value.trim(); DB.config.email=document.getElementById('idEmail').value.trim(); DB.config.address=document.getElementById('idAddress').value.trim(); DB.config.hours=document.getElementById('idHours').value.trim(); DB.config.days=document.getElementById('idDays').value.trim(); // Guardar credenciales admin
-  const newUser=document.getElementById('idAdminUser').value.trim(); if(newUser) DB.config.adminUser=newUser; const newPass=document.getElementById('idAdminPass').value; if(newPass && newPass.length>=6) DB.config.adminPass=newPass; // Si la contraseña está vacía, no se cambia
-  saveFullData(); updateFooter(); updateHeaderStoreName(); updateHeaderLogo(); notify('✅ Identidad guardada'); }
+function saveIdentity(){ DB.config.storeName=document.getElementById('idStoreName').value.trim()||'TechParts Store'; DB.config.slogan=document.getElementById('idSlogan').value.trim(); DB.config.wa=document.getElementById('idWA').value.trim(); DB.config.email=document.getElementById('idEmail').value.trim(); DB.config.address=document.getElementById('idAddress').value.trim(); DB.config.hours=document.getElementById('idHours').value.trim(); DB.config.days=document.getElementById('idDays').value.trim(); // Guardar credenciales admin const newUser=document.getElementById('idAdminUser').value.trim(); if(newUser) DB.config.adminUser=newUser; const newPass=document.getElementById('idAdminPass').value; if(newPass && newPass.length>=6) DB.config.adminPass=newPass; // Si la contraseña está vacía, no se cambia saveFullData(); updateFooter(); updateHeaderStoreName(); updateHeaderLogo(); notify('✅ Identidad guardada'); }
 function updateFooter(){ const c=DB.config; const n=c.storeName||'TechParts Store'; const fs=document.getElementById('footerStoreName'); if(fs)fs.textContent=n; const fc=document.getElementById('footerCopy'); if(fc)fc.textContent=n; const fd=document.getElementById('footerDesc'); if(fd)fd.textContent=c.slogan||'Especialistas en repuestos'; const fw=document.getElementById('footerWA'); if(fw){ fw.textContent=`📱 ${c.wa||'WhatsApp'}`; fw.href=c.wa?`https://wa.me/${c.wa.replace(/\D/g,'')}`:'#'; } const fe=document.getElementById('footerEmail'); if(fe){ fe.textContent=`✉️ ${c.email||'Email'}`; fe.href=c.email?`mailto:${c.email}`:'#'; } const fa=document.getElementById('footerAddress'); if(fa)fa.textContent=`📍 ${c.address||'Dirección'}`; const fh=document.getElementById('footerHours'); if(fh)fh.textContent=`⏰ ${c.hours||'9:00-18:00'}`; const fd2=document.getElementById('footerDays'); if(fd2)fd2.textContent=`📅 ${c.days||'Lun-Vie'}`; }
 function renderSeasonalGrid(){ const g=document.getElementById('seasonalGrid'); if(!g)return; g.innerHTML=Object.entries(seasonalBackgrounds).map(([k,v])=>`<div class="seasonal-card" onclick="applySeasonalBg('${k}')" style="background:${v.gradient}"><div style="font-size:32px">${v.icon}</div><div>${v.name}</div></div>`).join(''); }
 function applySeasonalBg(k){ const bg=seasonalBackgrounds[k]; if(!bg)return; document.body.style.background=bg.gradient; DB.config.seasonalBg=k; DB.config.autoSeasonal=false; saveFullData(); notify(`🎨 ${bg.name} aplicado`); }
@@ -2001,7 +2115,7 @@ function openUserMenu(){ if(!currentUser)return; document.getElementById('userPr
 function openEditProfileModal(){ if(!currentUser)return; const html=`<div class="modal-overlay" id="editProfileModal"><div class="modal-box"><div class="modal-header"><h2>✏️ Editar Perfil</h2><button class="modal-close" onclick="closeModal('editProfileModal')">✕</button></div><div class="modal-body"><div class="form-group"><label>Nombre</label><input type="text" id="editProfileName" value="${escapeHtml(currentUser.name)}"></div><div class="form-group"><label>Teléfono</label><input type="tel" id="editProfilePhone" value="${escapeHtml(currentUser.phone||'')}"></div><div class="form-group"><label>Dirección</label><input type="text" id="editProfileAddress" value="${escapeHtml(currentUser.address||'')}"></div><div class="form-group"><label>Nueva contraseña</label><input type="password" id="editProfilePassword" placeholder="Dejar vacío para no cambiar"></div><button class="btn-primary" onclick="saveProfileChanges()">Guardar</button><button class="btn-secondary" onclick="closeModal('editProfileModal')">Cancelar</button></div></div></div>`; document.body.insertAdjacentHTML('beforeend',html); document.getElementById('editProfileModal').classList.add('open'); }
 function saveProfileChanges(){ if(!currentUser)return; const newName=document.getElementById('editProfileName').value.trim(); const newPhone=document.getElementById('editProfilePhone').value.trim(); const newAddress=document.getElementById('editProfileAddress').value.trim(); const newPass=document.getElementById('editProfilePassword').value; if(!newName){ notify('⚠️ Nombre requerido','error'); return; } const idx=DB.users.findIndex(u=>u.email===currentUser.email); if(idx!==-1){ DB.users[idx].name=newName; DB.users[idx].phone=newPhone; DB.users[idx].address=newAddress; DB.users[idx].updatedAt=Date.now(); if(newPass.length>=6) DB.users[idx].password=newPass; } currentUser.name=newName; currentUser.phone=newPhone; currentUser.address=newAddress; if(newPass.length>=6) currentUser.password=newPass; saveFullData(); updateAuthUI(); closeModal('editProfileModal'); notify('✅ Perfil actualizado'); }
 
-// ==================== ADMIN CREDENTIALS MODAL ====================
+// ==================== ADMIN CREDENTIALS MODAL (NUEVO) ====================
 let adminCredModalInitialized = false;
 
 function ensureAdminCredentialsModal() {
@@ -2036,7 +2150,7 @@ function ensureAdminCredentialsModal() {
 function openAdminCredentialsModal() {
   ensureAdminCredentialsModal();
   // precargar valores actuales
-  const currentUser = DB.config.adminUser || 'dmadmin23';
+  const currentUser = DB.config.adminUser || '';
   document.getElementById('adminNewUser').value = currentUser;
   document.getElementById('adminNewPass').value = '';
   const modal = document.getElementById('adminCredModal');
