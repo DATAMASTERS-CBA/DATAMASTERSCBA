@@ -960,6 +960,66 @@ footer {
   padding: 12px;
   margin-bottom: 16px;
 }
+
+/* Zoom control */
+.zoom-control {
+  margin: 20px 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.zoom-control label {
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+.zoom-control input[type="range"] {
+  flex: 1;
+  max-width: 300px;
+}
+.zoom-control span {
+  font-size: 0.9rem;
+  font-weight: 700;
+  min-width: 50px;
+}
+
+/* Estilos para categorías */
+.cat-mgr-section {
+  margin-bottom: 24px;
+}
+.cat-mgr-section h4 {
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 6px;
+}
+.cat-mgr-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--surface2);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 4px;
+  border: 1px solid var(--border);
+}
+.cat-mgr-item .cat-name {
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+.cat-mgr-item .cat-actions {
+  display: flex;
+  gap: 4px;
+}
+.cat-mgr-item .cat-actions button {
+  padding: 2px 6px;
+  font-size: 0.65rem;
+}
+.cat-mgr-models {
+  margin-left: 16px;
+  padding-left: 8px;
+  border-left: 2px solid var(--border);
+}
 </style>
 </head>
 <body>
@@ -1036,15 +1096,16 @@ footer {
       </div>
     </div>
     <div class="admin-tabs" id="adminTabs">
-      <button class="admin-tab active" onclick="switchAdminTab('dashboard',this)">📊</button>
-      <button class="admin-tab" onclick="switchAdminTab('inventory',this)">📦</button>
-      <button class="admin-tab" onclick="switchAdminTab('orders',this)">📋</button>
-      <button class="admin-tab" onclick="switchAdminTab('history',this)">📜</button>
-      <button class="admin-tab" onclick="switchAdminTab('delivered',this)">✅</button>
-      <button class="admin-tab" onclick="switchAdminTab('clients',this)">👥</button>
-      <button class="admin-tab" onclick="switchAdminTab('filters',this)">🏷️</button>
-      <button class="admin-tab" onclick="switchAdminTab('branding',this)">🎨</button>
-      <button class="admin-tab" onclick="switchAdminTab('identity',this)">🏢</button>
+      <button class="admin-tab active" onclick="switchAdminTab('dashboard',this)">📊 Dashboard</button>
+      <button class="admin-tab" onclick="switchAdminTab('inventory',this)">📦 Inventario</button>
+      <button class="admin-tab" onclick="switchAdminTab('orders',this)">📋 Pedidos</button>
+      <button class="admin-tab" onclick="switchAdminTab('history',this)">📜 Historial</button>
+      <button class="admin-tab" onclick="switchAdminTab('delivered',this)">✅ Entregados</button>
+      <button class="admin-tab" onclick="switchAdminTab('clients',this)">👥 Clientes</button>
+      <button class="admin-tab" onclick="switchAdminTab('filters',this)">🏷️ Filtros</button>
+      <button class="admin-tab" onclick="switchAdminTab('categories',this)">🏷️ Categorías</button>
+      <button class="admin-tab" onclick="switchAdminTab('branding',this)">🎨 Branding</button>
+      <button class="admin-tab" onclick="switchAdminTab('identity',this)">🏢 Identidad</button>
     </div>
     <div class="admin-section active" id="tab-dashboard">
       <div id="newSaleNotification"></div>
@@ -1055,40 +1116,13 @@ footer {
         <div>
           <div class="inv-toolbar">
             <input type="text" id="inventorySearch" placeholder="Buscar..." oninput="renderInventoryTable(this.value)">
-            <button class="tbl-btn tbl-edit" onclick="openAddProduct(null)">+ Nuevo</button>
+            <button class="tbl-btn tbl-edit" onclick="openAddProductModal(null)">+ Nuevo</button>
           </div>
           <div class="inv-table-wrap">
             <table class="inv-table">
               <thead><tr><th>Img</th><th>Nombre</th><th>Parte</th><th>Categoría</th><th>Precio</th><th>Stock</th><th>Badge</th><th>Acc.</th></tr></thead>
               <tbody id="invTbody"></tbody>
             </table>
-          </div>
-        </div>
-        <div id="addProductSidebar">
-          <div class="add-product-form">
-            <h3 id="formTitle">➕ Nuevo Producto</h3>
-            <input type="hidden" id="editingId">
-            <div class="form-group"><label>Nombre *</label><input type="text" id="pName" placeholder="Ej: Pantalla LCD 15.6"></div>
-            <div class="form-group"><label>N° Parte</label><input type="text" id="pPart" placeholder="Ej: LP156WF6"></div>
-            <div class="form-group"><label>Descripción</label><textarea id="pDescription" rows="2" placeholder="Detalles..." style="resize:vertical"></textarea></div>
-            <div class="form-group"><label>Categorización</label>
-              <div class="cat-chain">
-                <div class="cat-row"><select id="catBrand" onchange="updateCatModel()"><option value="">— Marca —</option></select><button class="cat-add-btn" onclick="addNewCatValue('brand')">+</button></div>
-                <div class="cat-row"><select id="catModel" onchange="updateCatParts()"><option value="">— Modelo —</option></select><button class="cat-add-btn" onclick="addNewCatValue('model')">+</button></div>
-                <div class="cat-row"><select id="catType"><option value="">— Tipo —</option><option value="Interno">Interno</option><option value="Externo">Externo</option><option value="Accesorio">Accesorio</option></select></div>
-                <div class="cat-row"><select id="catPart"><option value="">— Parte —</option></select><button class="cat-add-btn" onclick="addNewCatValue('part')">+</button></div>
-              </div>
-            </div>
-            <div class="form-group"><label>Imágenes</label><div class="photo-list" id="photoList"></div></div>
-            <div class="form-row">
-              <div class="form-group"><label>Costo ($)</label><input type="number" id="pCost" oninput="calcFinalPrice()" min="0" step="0.01"></div>
-              <div class="form-group"><label>Ganancia (%)</label><input type="number" id="pMargin" oninput="calcFinalPrice()" min="0" step="1"></div>
-            </div>
-            <div class="price-calc-box" id="priceCalcBox" style="display:none"><div style="display:flex;justify-content:space-between"><span>Precio final:</span><span class="final" id="pFinalDisplay">$0.00</span></div></div>
-            <div class="form-group"><label>Precio final ($)</label><input type="number" id="pFinal" min="0" step="0.01"></div>
-            <div class="form-group"><label>Stock</label><input type="number" id="pStock" min="0" step="1"></div>
-            <div class="form-group"><label>Etiqueta</label><div class="badge-selector"><div class="badge-opt" data-val="Nuevo" onclick="toggleBadge(this)">Nuevo</div><div class="badge-opt" data-val="Reacondicionado" onclick="toggleBadge(this)">Reacond.</div><div class="badge-opt" data-val="Especial" onclick="toggleBadge(this)">Especial</div><div class="badge-opt" data-val="Oferta" onclick="toggleBadge(this)">Oferta</div></div></div>
-            <div style="display:flex;gap:8px"><button class="btn-primary" onclick="saveProduct()">💾 Guardar</button><button class="btn-secondary" onclick="clearProductForm()">✕</button></div>
           </div>
         </div>
       </div>
@@ -1105,6 +1139,10 @@ footer {
         <button class="btn-secondary" onclick="resetFiltersToDefault()" style="width:auto;padding:8px 16px">🔄 Restaurar</button>
       </div>
       <div id="filtersList" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px"></div>
+    </div>
+    <div class="admin-section" id="tab-categories">
+      <h3 style="margin-bottom:14px;font-size:0.95rem;font-weight:700">🏷️ Gestión de Categorías</h3>
+      <div id="categoriesManager"></div>
     </div>
     <div class="admin-section" id="tab-branding">
       <div id="bgSelectorButtonContainer" style="margin-bottom:14px"></div>
@@ -1123,6 +1161,15 @@ footer {
       <div class="color-palette" id="colorPalette"><div class="color-swatch active" style="background:#FFE600" onclick="applyColor('#FFE600','#1A1A2E',this)"></div><div class="color-swatch" style="background:#3B82F6" onclick="applyColor('#3B82F6','#fff',this)"></div><div class="color-swatch" style="background:#10B981" onclick="applyColor('#10B981','#fff',this)"></div><div class="color-swatch" style="background:#EF4444" onclick="applyColor('#EF4444','#fff',this)"></div><div class="color-swatch" style="background:#8B5CF6" onclick="applyColor('#8B5CF6','#fff',this)"></div><div class="color-swatch" style="background:#F59E0B" onclick="applyColor('#F59E0B','#fff',this)"></div><div class="color-swatch" style="background:#EC4899" onclick="applyColor('#EC4899','#fff',this)"></div><div class="color-swatch" style="background:#06B6D4" onclick="applyColor('#06B6D4','#fff',this)"></div></div>
       <h3 style="margin:20px 0 10px;font-size:0.95rem;font-weight:700">Tipografía</h3>
       <div class="font-grid"><div class="font-opt active" onclick="applyFont('Plus Jakarta Sans',this)"><div class="sample" style="font-family:'Plus Jakarta Sans'">Aa</div><div class="name">Plus Jakarta</div></div><div class="font-opt" onclick="applyFont('Georgia',this)"><div class="sample" style="font-family:Georgia">Aa</div><div class="name">Georgia</div></div><div class="font-opt" onclick="applyFont('Trebuchet MS',this)"><div class="sample" style="font-family:'Trebuchet MS'">Aa</div><div class="name">Trebuchet</div></div><div class="font-opt" onclick="applyFont('Space Mono',this)"><div class="sample" style="font-family:'Space Mono'">Aa</div><div class="name">Space Mono</div></div></div>
+      <!-- Control de zoom -->
+      <div id="zoomControlContainer" style="display:<?= (currentUser && currentUser.role === 'admin') ? 'block' : 'none' ?>;">
+        <h3 style="margin:20px 0 10px;font-size:0.95rem;font-weight:700">🔍 Zoom (Admin)</h3>
+        <div class="zoom-control">
+          <label>100%</label>
+          <input type="range" min="100" max="300" value="100" id="zoomSlider" oninput="applyZoom(this.value)">
+          <span id="zoomValue">100%</span>
+        </div>
+      </div>
     </div>
     <div class="admin-section" id="tab-identity">
       <div style="display:grid;grid-template-columns:1fr;gap:16px">
@@ -1141,6 +1188,7 @@ footer {
   </div>
 </div>
 
+<!-- Modales existentes -->
 <div class="modal-overlay" id="modalDevoluciones">
   <div class="modal-box">
     <div class="modal-header">
@@ -1252,6 +1300,19 @@ footer {
 <div class="share-panel" id="sharePanel" onclick="if(event.target===this)closeSharePanel()"><div class="share-sheet"><h3>Compartir</h3><div class="share-grid" id="shareGrid"></div><button class="btn-secondary" onclick="closeSharePanel()">Cerrar</button></div></div>
 <div class="notif-container" id="notifContainer"></div>
 
+<!-- Modal para producto por pasos -->
+<div class="modal-overlay" id="productStepModal">
+  <div class="modal-box large">
+    <div class="modal-header">
+      <h2 id="productStepTitle">➕ Nuevo Producto</h2>
+      <button class="modal-close" onclick="closeModal('productStepModal')">✕</button>
+    </div>
+    <div class="modal-body" id="productStepBody">
+      <!-- El contenido se genera dinámicamente -->
+    </div>
+  </div>
+</div>
+
 <script>
 // ==================== INICIALIZACIÓN GLOBAL ====================
 let DB = {
@@ -1285,7 +1346,8 @@ let DB = {
     autoContrast: false,
     quickFilters: ['Todos', 'Pantalla', 'Teclado', 'Batería', 'Cargador', 'Placa Madre', 'Memoria RAM', 'Disco SSD', 'Procesador'],
     adminUser: null,
-    adminPass: null
+    adminPass: null,
+    zoom: 100
   }
 };
 
@@ -1366,6 +1428,7 @@ function _fixDB() {
   if (DB.config.quickFilters[0] !== 'Todos') {
     DB.config.quickFilters = ['Todos', ...DB.config.quickFilters.filter(f => f !== 'Todos')];
   }
+  if (DB.config.zoom === undefined) DB.config.zoom = 100;
 }
 
 function setupRealtimeSync() {
@@ -1394,8 +1457,10 @@ function setupRealtimeSync() {
           if (currentUser) { const updated = DB.users.find(u => u.email === currentUser.email); if (updated) { currentUser = updated; updateAuthUI(); } }
           renderProducts(); renderInventoryTable(); renderStats(); renderAllOrders(); renderDeliveredList(); renderClientsTable(); renderHistoryList();
           renderFiltersAdmin();
+          renderCategoriesAdmin();
           createQuickFilters();
           checkAdminSetup();
+          applyStoredZoom();
         } catch(e) { console.warn(e); }
       }
     },
@@ -1445,6 +1510,30 @@ function resizeImage(file, maxWidth = 800, maxHeight = 800, quality = 0.7) {
       reject(error);
     };
   });
+}
+
+// ==================== ZOOM ====================
+function applyZoom(val) {
+  const percent = parseInt(val);
+  document.getElementById('zoomValue').textContent = percent + '%';
+  document.getElementById('storeView').style.transform = `scale(${percent/100})`;
+  document.getElementById('storeView').style.transformOrigin = 'top left';
+  document.getElementById('adminView').style.transform = `scale(${percent/100})`;
+  document.getElementById('adminView').style.transformOrigin = 'top left';
+  DB.config.zoom = percent;
+  saveFullData();
+}
+
+function applyStoredZoom() {
+  const zoom = DB.config.zoom || 100;
+  const val = Math.min(Math.max(zoom, 100), 300);
+  const slider = document.getElementById('zoomSlider');
+  if (slider) slider.value = val;
+  document.getElementById('zoomValue').textContent = val + '%';
+  document.getElementById('storeView').style.transform = `scale(${val/100})`;
+  document.getElementById('storeView').style.transformOrigin = 'top left';
+  document.getElementById('adminView').style.transform = `scale(${val/100})`;
+  document.getElementById('adminView').style.transformOrigin = 'top left';
 }
 
 // ==================== FILTROS RÁPIDOS (TIENDA) ====================
@@ -1572,6 +1661,197 @@ function resetFiltersToDefault() {
   }
 }
 
+// ==================== ADMIN: GESTIÓN DE CATEGORÍAS ====================
+function renderCategoriesAdmin() {
+  const container = document.getElementById('categoriesManager');
+  if (!container) return;
+  
+  // Marcas
+  let brandsHtml = `<div class="cat-mgr-section">
+    <h4>🏷️ Marcas</h4>
+    <div style="display:flex;gap:6px;margin-bottom:8px">
+      <input type="text" id="newBrandInput" placeholder="Nueva marca..." style="flex:1;padding:4px 8px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg2);color:var(--text)">
+      <button class="tbl-btn tbl-edit" onclick="addCategory('brand')">+ Agregar</button>
+    </div>
+    <div id="brandsList">`;
+  if (DB.categories.brands.length === 0) {
+    brandsHtml += `<p style="color:var(--text3);font-size:0.78rem">Sin marcas</p>`;
+  } else {
+    DB.categories.brands.forEach(b => {
+      brandsHtml += `<div class="cat-mgr-item">
+        <span class="cat-name">${escapeHtml(b)}</span>
+        <div class="cat-actions">
+          <button class="tbl-btn tbl-edit" onclick="editCategory('brand','${escapeHtml(b)}')">✏️</button>
+          <button class="tbl-btn tbl-del" onclick="deleteCategory('brand','${escapeHtml(b)}')">🗑️</button>
+        </div>
+      </div>`;
+    });
+  }
+  brandsHtml += `</div></div>`;
+
+  // Modelos
+  let modelsHtml = `<div class="cat-mgr-section">
+    <h4>📦 Modelos</h4>
+    <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap">
+      <select id="modelBrandSelect" style="padding:4px 8px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg2);color:var(--text)">
+        <option value="">Seleccionar marca</option>
+        ${DB.categories.brands.map(b => `<option value="${escapeHtml(b)}">${escapeHtml(b)}</option>`).join('')}
+      </select>
+      <input type="text" id="newModelInput" placeholder="Nuevo modelo..." style="flex:1;padding:4px 8px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg2);color:var(--text)">
+      <button class="tbl-btn tbl-edit" onclick="addCategory('model')">+ Agregar</button>
+    </div>
+    <div id="modelsList">`;
+  if (Object.keys(DB.categories.models).length === 0) {
+    modelsHtml += `<p style="color:var(--text3);font-size:0.78rem">Sin modelos</p>`;
+  } else {
+    for (const [brand, models] of Object.entries(DB.categories.models)) {
+      modelsHtml += `<div style="margin-bottom:6px"><strong>${escapeHtml(brand)}</strong>`;
+      if (models.length === 0) {
+        modelsHtml += `<div style="margin-left:16px;color:var(--text3);font-size:0.78rem">Sin modelos</div>`;
+      } else {
+        models.forEach(m => {
+          modelsHtml += `<div class="cat-mgr-item cat-mgr-models">
+            <span class="cat-name">${escapeHtml(m)}</span>
+            <div class="cat-actions">
+              <button class="tbl-btn tbl-edit" onclick="editCategory('model','${escapeHtml(m)}','${escapeHtml(brand)}')">✏️</button>
+              <button class="tbl-btn tbl-del" onclick="deleteCategory('model','${escapeHtml(m)}','${escapeHtml(brand)}')">🗑️</button>
+            </div>
+          </div>`;
+        });
+      }
+      modelsHtml += `</div>`;
+    }
+  }
+  modelsHtml += `</div></div>`;
+
+  // Partes
+  let partsHtml = `<div class="cat-mgr-section">
+    <h4>🔩 Partes</h4>
+    <div style="display:flex;gap:6px;margin-bottom:8px">
+      <input type="text" id="newPartInput" placeholder="Nueva parte..." style="flex:1;padding:4px 8px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg2);color:var(--text)">
+      <button class="tbl-btn tbl-edit" onclick="addCategory('part')">+ Agregar</button>
+    </div>
+    <div id="partsList">`;
+  if (DB.categories.parts.length === 0) {
+    partsHtml += `<p style="color:var(--text3);font-size:0.78rem">Sin partes</p>`;
+  } else {
+    DB.categories.parts.forEach(p => {
+      partsHtml += `<div class="cat-mgr-item">
+        <span class="cat-name">${escapeHtml(p)}</span>
+        <div class="cat-actions">
+          <button class="tbl-btn tbl-edit" onclick="editCategory('part','${escapeHtml(p)}')">✏️</button>
+          <button class="tbl-btn tbl-del" onclick="deleteCategory('part','${escapeHtml(p)}')">🗑️</button>
+        </div>
+      </div>`;
+    });
+  }
+  partsHtml += `</div></div>`;
+
+  container.innerHTML = brandsHtml + modelsHtml + partsHtml;
+}
+
+function addCategory(type) {
+  if (currentUser?.role !== 'admin') { notify('⛔ Solo administradores', 'error'); return; }
+  let inputId, value;
+  if (type === 'brand') {
+    inputId = 'newBrandInput';
+    value = document.getElementById(inputId).value.trim();
+    if (!value) { notify('⚠️ Ingresá una marca', 'error'); return; }
+    if (DB.categories.brands.includes(value)) { notify('⚠️ Ya existe', 'error'); return; }
+    DB.categories.brands.push(value);
+    document.getElementById(inputId).value = '';
+  } else if (type === 'model') {
+    const brand = document.getElementById('modelBrandSelect').value;
+    if (!brand) { notify('⚠️ Seleccioná una marca', 'error'); return; }
+    inputId = 'newModelInput';
+    value = document.getElementById(inputId).value.trim();
+    if (!value) { notify('⚠️ Ingresá un modelo', 'error'); return; }
+    if (!DB.categories.models[brand]) DB.categories.models[brand] = [];
+    if (DB.categories.models[brand].includes(value)) { notify('⚠️ Ya existe', 'error'); return; }
+    DB.categories.models[brand].push(value);
+    document.getElementById(inputId).value = '';
+  } else if (type === 'part') {
+    inputId = 'newPartInput';
+    value = document.getElementById(inputId).value.trim();
+    if (!value) { notify('⚠️ Ingresá una parte', 'error'); return; }
+    if (DB.categories.parts.includes(value)) { notify('⚠️ Ya existe', 'error'); return; }
+    DB.categories.parts.push(value);
+    document.getElementById(inputId).value = '';
+  }
+  saveFullData();
+  renderCategoriesAdmin();
+  notify(`✅ "${value}" agregado a ${type}s`);
+}
+
+function editCategory(type, oldValue, brand) {
+  if (currentUser?.role !== 'admin') { notify('⛔ Solo administradores', 'error'); return; }
+  let newValue = prompt(`Editar "${oldValue}":`, oldValue);
+  if (newValue === null) return;
+  newValue = newValue.trim();
+  if (!newValue || newValue === oldValue) return;
+
+  if (type === 'brand') {
+    const idx = DB.categories.brands.indexOf(oldValue);
+    if (idx === -1) return;
+    // Actualizar en productos
+    DB.products.forEach(p => { if (p.brand === oldValue) p.brand = newValue; });
+    // Actualizar en modelos (renombrar clave)
+    if (DB.categories.models[oldValue]) {
+      DB.categories.models[newValue] = DB.categories.models[oldValue];
+      delete DB.categories.models[oldValue];
+    }
+    DB.categories.brands[idx] = newValue;
+  } else if (type === 'model') {
+    if (!brand) return;
+    if (!DB.categories.models[brand]) return;
+    const idx = DB.categories.models[brand].indexOf(oldValue);
+    if (idx === -1) return;
+    DB.products.forEach(p => { if (p.brand === brand && p.model === oldValue) p.model = newValue; });
+    DB.categories.models[brand][idx] = newValue;
+  } else if (type === 'part') {
+    const idx = DB.categories.parts.indexOf(oldValue);
+    if (idx === -1) return;
+    DB.products.forEach(p => { if (p.partSpecific === oldValue) p.partSpecific = newValue; });
+    DB.categories.parts[idx] = newValue;
+  }
+  saveFullData();
+  renderCategoriesAdmin();
+  renderProducts();
+  renderInventoryTable();
+  notify(`✅ "${oldValue}" → "${newValue}"`);
+}
+
+function deleteCategory(type, value, brand) {
+  if (currentUser?.role !== 'admin') { notify('⛔ Solo administradores', 'error'); return; }
+  if (!confirm(`¿Eliminar "${value}"?`)) return;
+
+  if (type === 'brand') {
+    const idx = DB.categories.brands.indexOf(value);
+    if (idx === -1) return;
+    DB.products.forEach(p => { if (p.brand === value) p.brand = ''; });
+    DB.categories.brands.splice(idx, 1);
+    delete DB.categories.models[value];
+  } else if (type === 'model') {
+    if (!brand) return;
+    if (!DB.categories.models[brand]) return;
+    const idx = DB.categories.models[brand].indexOf(value);
+    if (idx === -1) return;
+    DB.products.forEach(p => { if (p.brand === brand && p.model === value) p.model = ''; });
+    DB.categories.models[brand].splice(idx, 1);
+    if (DB.categories.models[brand].length === 0) delete DB.categories.models[brand];
+  } else if (type === 'part') {
+    const idx = DB.categories.parts.indexOf(value);
+    if (idx === -1) return;
+    DB.products.forEach(p => { if (p.partSpecific === value) p.partSpecific = ''; });
+    DB.categories.parts.splice(idx, 1);
+  }
+  saveFullData();
+  renderCategoriesAdmin();
+  renderProducts();
+  renderInventoryTable();
+  notify(`🗑️ "${value}" eliminado`);
+}
+
 // ==================== VISTA PREVIA DEL PRODUCTO (ADMIN) ====================
 function previewProduct(id) {
   const p = DB.products.find(x => x.id === id);
@@ -1602,7 +1882,7 @@ function previewProduct(id) {
         <div><span style="color:var(--text3)">Stock:</span> <span style="color:${p.stock === 0 ? 'red' : p.stock < 5 ? 'orange' : 'green'}">${p.stock}</span></div>
         <div><span style="color:var(--text3)">Etiqueta:</span> ${badgeHtml}</div>
         ${p.description ? `<div><span style="color:var(--text3)">Descripción:</span><p style="background:var(--bg3);padding:6px;border-radius:var(--radius-sm);margin-top:4px;font-size:0.82rem">${escapeHtml(p.description)}</p></div>` : ''}
-        <button class="btn-primary" onclick="closeModal('adminPreviewModal');openAddProduct('${p.id}')">✏️ Editar</button>
+        <button class="btn-primary" onclick="closeModal('adminPreviewModal');openAddProductModal('${p.id}')">✏️ Editar</button>
       </div>
     </div>
   `;
@@ -1672,9 +1952,11 @@ function loadDataFromCloud() {
     if (!bgSelectorInitialized) { createBgSelectorModal(); bgSelectorInitialized = true; }
     addBgSelectorButton();
     renderFiltersAdmin();
+    renderCategoriesAdmin();
     createQuickFilters();
     checkAdminSetup();
     setTimeout(setupRealtimeSync, 2000);
+    applyStoredZoom();
   }
   
   checkFirebase();
@@ -1766,6 +2048,7 @@ function doLogin() {
       saveToAutocomplete(user, pass);
       closeModal('authModal');
       notify('✅ Bienvenido, Administrador', 'success');
+      document.getElementById('zoomControlContainer').style.display = 'block';
       return;
     }
   }
@@ -1783,6 +2066,7 @@ function doLogin() {
     saveToAutocomplete(user, pass);
     closeModal('authModal');
     notify(`✅ Bienvenido, ${found.name}`, 'success');
+    if (found.role === 'admin') document.getElementById('zoomControlContainer').style.display = 'block';
   } else {
     notify('❌ Usuario o contraseña incorrectos', 'error');
   }
@@ -1824,7 +2108,7 @@ function sendRecoveryEmail() {
   setTimeout(() => { msgDiv.innerHTML = ''; switchAuthTab('login', document.querySelector('.auth-tab')); document.getElementById('loginUser').value = email; }, 3000);
 }
 
-function doLogout() { currentUser = null; saveFullData(); updateAuthUI(); closeModal('userMenuModal'); showStore(); notify('👋 Sesión cerrada', 'info'); }
+function doLogout() { currentUser = null; saveFullData(); updateAuthUI(); closeModal('userMenuModal'); showStore(); notify('👋 Sesión cerrada', 'info'); document.getElementById('zoomControlContainer').style.display = 'none'; }
 function updateAuthUI() { 
   const authBtn = document.getElementById('authBtn'), userBtn = document.getElementById('userBtn'), adminBtn = document.getElementById('adminBtn'), userNameSpan = document.getElementById('userNameDisplay'); 
   if (currentUser) { 
@@ -1832,10 +2116,12 @@ function updateAuthUI() {
     if (userBtn) userBtn.style.display = 'flex'; 
     if (userNameSpan) userNameSpan.textContent = (currentUser.name || '').split(' ')[0]; 
     if (adminBtn) adminBtn.style.display = currentUser.role === 'admin' ? 'flex' : 'none'; 
+    if (currentUser.role === 'admin') document.getElementById('zoomControlContainer').style.display = 'block';
   } else { 
     if (authBtn) authBtn.style.display = 'flex'; 
     if (userBtn) userBtn.style.display = 'none'; 
     if (adminBtn) adminBtn.style.display = 'none'; 
+    document.getElementById('zoomControlContainer').style.display = 'none';
   } 
 }
 function openAuthModal() { 
@@ -2006,19 +2292,271 @@ function renderInventoryTable(query = '') {
   } 
   tbody.innerHTML = prods.map(p => `<tr><td><img class="tbl-img" src="${p.images?.[0] || 'https://via.placeholder.com/44'}" onerror="this.src='https://via.placeholder.com/44'"></td><td><strong>${escapeHtml(p.name)}</strong></td><td>${p.partNumber || '—'}</td><td>${[p.brand, p.model, p.partSpecific].filter(Boolean).join(' › ')}</td><td>$${formatNum(p.finalPrice)}</td><td><span style="color:${p.stock === 0 ? 'red' : p.stock < 5 ? 'orange' : 'green'}">${p.stock}</span><div class="stock-bar"><div class="stock-fill" style="width:${Math.min(100, p.stock * 5)}%;background:${p.stock === 0 ? 'red' : p.stock < 5 ? 'orange' : 'green'}"></div></div></td><td>${p.badge ? `<span class="badge badge-${p.badge.toLowerCase()}">${p.badge}</span>` : '—'}</td><td><div class="tbl-actions">
     <button class="tbl-btn" style="background:var(--primary);color:var(--secondary);border:1px solid var(--primary)" onclick="previewProduct('${p.id}')" title="Vista previa">👁️</button>
-    <button class="tbl-btn tbl-edit" onclick="openAddProduct('${p.id}')">✏️</button>
+    <button class="tbl-btn tbl-edit" onclick="openAddProductModal('${p.id}')">✏️</button>
     <button class="tbl-btn tbl-del" onclick="deleteProduct('${p.id}')">🗑️</button>
   </div></td></tr>`).join(''); 
 }
-function openAddProduct(id) { if (currentUser?.role !== 'admin') { notify('⛔ Solo el administrador puede editar productos', 'error'); return; } clearProductForm(); photoUrls = []; if (id) { const p = DB.products.find(x => x.id === id); if (!p) return; editingProductId = id; document.getElementById('formTitle').textContent = '✏️ Editar Producto'; document.getElementById('editingId').value = id; document.getElementById('pName').value = p.name || ''; document.getElementById('pPart').value = p.partNumber || ''; document.getElementById('pDescription').value = p.description || ''; document.getElementById('pCost').value = p.cost || ''; document.getElementById('pMargin').value = p.margin || ''; document.getElementById('pFinal').value = p.finalPrice; document.getElementById('pStock').value = p.stock; photoUrls = [...(p.images || [])]; selectedBadge = p.badge || ''; document.querySelectorAll('.badge-opt').forEach(b => b.classList.toggle('active', b.dataset.val === selectedBadge)); updateCatSelectors(); setTimeout(() => { if (document.getElementById('catBrand') && p.brand) document.getElementById('catBrand').value = p.brand; updateCatModel(); setTimeout(() => { if (document.getElementById('catModel') && p.model) document.getElementById('catModel').value = p.model; if (document.getElementById('catType') && p.componentType) document.getElementById('catType').value = p.componentType; updateCatParts(); if (document.getElementById('catPart') && p.partSpecific) document.getElementById('catPart').value = p.partSpecific; }, 50); }, 50); } else { editingProductId = null; document.getElementById('formTitle').textContent = '➕ Nuevo Producto'; document.getElementById('editingId').value = ''; updateCatSelectors(); } renderPhotoList(); calcFinalPrice(); }
-function clearProductForm() { editingProductId = null; document.getElementById('editingId').value = ''; document.getElementById('formTitle').textContent = '➕ Nuevo Producto'; document.getElementById('pName').value = ''; document.getElementById('pPart').value = ''; document.getElementById('pDescription').value = ''; document.getElementById('pCost').value = ''; document.getElementById('pMargin').value = ''; document.getElementById('pFinal').value = ''; document.getElementById('pStock').value = ''; photoUrls = []; selectedBadge = ''; document.querySelectorAll('.badge-opt').forEach(b => b.classList.remove('active')); renderPhotoList(); document.getElementById('priceCalcBox').style.display = 'none'; updateCatSelectors(); }
-function saveProduct() { if (currentUser?.role !== 'admin') { notify('⛔ Solo el administrador puede guardar productos', 'error'); return; } const name = document.getElementById('pName').value.trim(); if (!name) { notify('⚠️ Nombre obligatorio','error'); return; } const finalPrice = parseFloat(document.getElementById('pFinal').value); if (!finalPrice || finalPrice <= 0) { notify('⚠️ Precio válido','error'); return; } const stock = parseInt(document.getElementById('pStock').value) || 0; const brand = document.getElementById('catBrand').value, model = document.getElementById('catModel').value, componentType = document.getElementById('catType').value, partSpecific = document.getElementById('catPart').value; const description = document.getElementById('pDescription').value.trim(); if (brand && !DB.categories.brands.includes(brand)) DB.categories.brands.push(brand); if (brand && model) { if (!DB.categories.models[brand]) DB.categories.models[brand] = []; if (!DB.categories.models[brand].includes(model)) DB.categories.models[brand].push(model); } if (partSpecific && !DB.categories.parts.includes(partSpecific)) DB.categories.parts.push(partSpecific); const product = { id: editingProductId || ('P' + Date.now()), name: name, description: description, partNumber: document.getElementById('pPart').value.trim(), brand: brand, model: model, componentType: componentType, partSpecific: partSpecific, images: photoUrls.filter(Boolean), cost: parseFloat(document.getElementById('pCost').value) || 0, margin: parseFloat(document.getElementById('pMargin').value) || 0, finalPrice: finalPrice, stock: stock, badge: selectedBadge }; if (editingProductId) { const idx = DB.products.findIndex(p => p.id === editingProductId); if (idx !== -1) DB.products[idx] = product; } else { DB.products.unshift(product); } saveFullData(); renderInventoryTable(); renderProducts(); renderStats(); clearProductForm(); notify(editingProductId ? '✅ Producto actualizado' : '✅ Producto creado'); }
+
+// ==================== FORMULARIO DE PRODUCTO EN MODAL POR PASOS ====================
+let _stepFields = [
+  { id: 'step0', label: 'Datos básicos', fields: [
+    { id: 'pName', label: 'Nombre *', type: 'text', placeholder: 'Ej: Pantalla LCD 15.6' },
+    { id: 'pPart', label: 'N° Parte', type: 'text', placeholder: 'Ej: LP156WF6' },
+    { id: 'pDescription', label: 'Descripción', type: 'textarea', placeholder: 'Detalles...', rows: 2 },
+    { id: 'pCost', label: 'Costo ($)', type: 'number', step: 0.01, min: 0 }
+  ] },
+  { id: 'step1', label: 'Precio y stock', fields: [
+    { id: 'pMargin', label: 'Ganancia (%)', type: 'number', step: 1, min: 0 },
+    { id: 'pFinal', label: 'Precio final ($)', type: 'number', step: 0.01, min: 0 },
+    { id: 'pStock', label: 'Stock', type: 'number', step: 1, min: 0 },
+    { id: 'pBadge', label: 'Etiqueta', type: 'badge' }
+  ] },
+  { id: 'step2', label: 'Categorización', fields: [
+    { id: 'catBrand', label: 'Marca', type: 'select', options: [] },
+    { id: 'catModel', label: 'Modelo', type: 'select', options: [] },
+    { id: 'catType', label: 'Tipo', type: 'select', options: ['Interno', 'Externo', 'Accesorio'] },
+    { id: 'catPart', label: 'Parte', type: 'select', options: [] }
+  ] },
+  { id: 'step3', label: 'Imágenes', fields: [
+    { id: 'photoList', label: 'Imágenes', type: 'photo' }
+  ] }
+];
+let _currentStep = 0;
+let _editingProductId = null;
+
+function openAddProductModal(id) {
+  if (currentUser?.role !== 'admin') { notify('⛔ Solo el administrador puede editar productos', 'error'); return; }
+  _editingProductId = id || null;
+  _currentStep = 0;
+  // Resetear datos
+  photoUrls = [];
+  selectedBadge = '';
+  // Si es edición, cargar datos
+  if (_editingProductId) {
+    const p = DB.products.find(x => x.id === _editingProductId);
+    if (!p) return;
+    // Guardar en campos ocultos para luego rellenar
+    window._editData = p;
+  } else {
+    window._editData = null;
+  }
+  renderStep();
+  openModal('productStepModal');
+}
+
+function renderStep() {
+  const body = document.getElementById('productStepBody');
+  if (!body) return;
+  const step = _stepFields[_currentStep];
+  const totalSteps = _stepFields.length;
+  const isEdit = !!_editingProductId;
+  const title = isEdit ? '✏️ Editar Producto' : '➕ Nuevo Producto';
+  document.getElementById('productStepTitle').textContent = title;
+
+  let html = `<div style="margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+    <span style="font-size:0.85rem;font-weight:600">Paso ${_currentStep+1} de ${totalSteps}: ${step.label}</span>
+    <span style="font-size:0.75rem;color:var(--text3)">${_currentStep+1}/${totalSteps}</span>
+  </div>`;
+  html += `<div style="display:flex;flex-direction:column;gap:10px">`;
+
+  // Renderizar campos del paso
+  step.fields.forEach(f => {
+    if (f.type === 'hidden') return;
+    html += `<div class="form-group">`;
+    if (f.type !== 'photo' && f.type !== 'badge') {
+      html += `<label>${f.label}</label>`;
+    }
+    if (f.type === 'text' || f.type === 'number' || f.type === 'password') {
+      const val = window._editData ? (window._editData[f.id] || '') : '';
+      html += `<input type="${f.type}" id="${f.id}" value="${escapeHtml(val)}" placeholder="${f.placeholder||''}" step="${f.step||''}" min="${f.min||''}" style="width:100%">`;
+    } else if (f.type === 'textarea') {
+      const val = window._editData ? (window._editData[f.id] || '') : '';
+      html += `<textarea id="${f.id}" rows="${f.rows||2}" placeholder="${f.placeholder||''}" style="width:100%;resize:vertical">${escapeHtml(val)}</textarea>`;
+    } else if (f.type === 'select') {
+      const val = window._editData ? (window._editData[f.id] || '') : '';
+      let options = f.options || [];
+      if (f.id === 'catBrand') options = DB.categories.brands;
+      else if (f.id === 'catModel') {
+        const brand = document.getElementById('catBrand')?.value || window._editData?.brand || '';
+        options = (brand && DB.categories.models[brand]) ? DB.categories.models[brand] : [];
+      } else if (f.id === 'catPart') options = DB.categories.parts;
+      html += `<select id="${f.id}" style="width:100%"><option value="">— Seleccionar —</option>`;
+      options.forEach(opt => {
+        const selected = (val === opt) ? 'selected' : '';
+        html += `<option value="${escapeHtml(opt)}" ${selected}>${escapeHtml(opt)}</option>`;
+      });
+      html += `</select>`;
+      if (f.id === 'catBrand') {
+        html += `<button class="cat-add-btn" onclick="addNewCatValue('brand')" style="margin-top:4px">+</button>`;
+      } else if (f.id === 'catModel') {
+        html += `<button class="cat-add-btn" onclick="addNewCatValue('model')" style="margin-top:4px">+</button>`;
+      } else if (f.id === 'catPart') {
+        html += `<button class="cat-add-btn" onclick="addNewCatValue('part')" style="margin-top:4px">+</button>`;
+      }
+    } else if (f.type === 'badge') {
+      const val = window._editData ? (window._editData.badge || '') : '';
+      selectedBadge = val;
+      html += `<div class="badge-selector">`;
+      ['Nuevo', 'Reacondicionado', 'Especial', 'Oferta'].forEach(b => {
+        const active = (val === b) ? 'active' : '';
+        html += `<div class="badge-opt ${active}" data-val="${b}" onclick="toggleBadge(this)">${b}</div>`;
+      });
+      html += `</div>`;
+    } else if (f.type === 'photo') {
+      html += `<div id="photoList"></div>`;
+      html += `<div style="display:flex;gap:6px;margin-top:6px"><button class="btn-add-photo" onclick="uploadLocalImage()" style="flex:1;font-size:0.72rem">📁 Subir imagen</button><button class="btn-add-photo" onclick="addPhotoUrlManually()" style="flex:1;font-size:0.72rem">🔗 Agregar URL</button></div>`;
+    }
+    html += `</div>`;
+  });
+
+  // Botones de navegación
+  html += `<div style="display:flex;gap:8px;margin-top:16px;border-top:1px solid var(--border);padding-top:16px">`;
+  if (_currentStep > 0) {
+    html += `<button class="btn-secondary" onclick="prevStep()" style="flex:1">◀ Anterior</button>`;
+  }
+  if (_currentStep < totalSteps - 1) {
+    html += `<button class="btn-primary" onclick="nextStep()" style="flex:1">Siguiente ▶</button>`;
+  } else {
+    html += `<button class="btn-primary" onclick="saveProductStep()" style="flex:1">💾 Guardar Producto</button>`;
+  }
+  html += `<button class="btn-secondary" onclick="closeModal('productStepModal')" style="flex:0.5">✕</button>`;
+  html += `</div>`;
+  body.innerHTML = html;
+
+  // Cargar datos de edición en los campos
+  if (window._editData) {
+    const data = window._editData;
+    _stepFields.forEach(s => {
+      s.fields.forEach(f => {
+        if (f.type === 'photo') {
+          photoUrls = [...(data.images || [])];
+          renderPhotoList();
+        } else if (f.type === 'badge') {
+          // ya se maneja arriba
+        } else if (f.type !== 'hidden') {
+          const el = document.getElementById(f.id);
+          if (el && data[f.id] !== undefined) {
+            el.value = data[f.id];
+          }
+        }
+      });
+    });
+    // Para selects, actualizar opciones de modelo y parte
+    if (data.brand) {
+      const brandSel = document.getElementById('catBrand');
+      if (brandSel) brandSel.value = data.brand;
+      // Actualizar modelo
+      const modelSel = document.getElementById('catModel');
+      if (modelSel) {
+        const models = (data.brand && DB.categories.models[data.brand]) ? DB.categories.models[data.brand] : [];
+        modelSel.innerHTML = '<option value="">— Modelo —</option>' + models.map(m => `<option value="${escapeHtml(m)}" ${m === data.model ? 'selected' : ''}>${escapeHtml(m)}</option>`).join('');
+      }
+      const partSel = document.getElementById('catPart');
+      if (partSel) {
+        partSel.innerHTML = '<option value="">— Parte —</option>' + DB.categories.parts.map(p => `<option value="${escapeHtml(p)}" ${p === data.partSpecific ? 'selected' : ''}>${escapeHtml(p)}</option>`).join('');
+      }
+    }
+    // Precio final
+    const finalInput = document.getElementById('pFinal');
+    if (finalInput && data.finalPrice) finalInput.value = data.finalPrice;
+  }
+}
+
+function nextStep() {
+  // Validar campos actuales si es necesario
+  if (_currentStep < _stepFields.length - 1) {
+    _currentStep++;
+    renderStep();
+  }
+}
+
+function prevStep() {
+  if (_currentStep > 0) {
+    _currentStep--;
+    renderStep();
+  }
+}
+
+function saveProductStep() {
+  // Recopilar todos los campos
+  const data = {};
+  _stepFields.forEach(s => {
+    s.fields.forEach(f => {
+      if (f.type === 'photo') {
+        data.images = photoUrls.filter(Boolean);
+      } else if (f.type === 'badge') {
+        data.badge = selectedBadge;
+      } else if (f.type !== 'hidden') {
+        const el = document.getElementById(f.id);
+        if (el) {
+          if (f.type === 'number') data[f.id] = parseFloat(el.value) || 0;
+          else data[f.id] = el.value;
+        }
+      }
+    });
+  });
+  // Validar campos requeridos
+  if (!data.pName || data.pName.trim() === '') {
+    notify('⚠️ El nombre es obligatorio', 'error');
+    return;
+  }
+  if (!data.pFinal || data.pFinal <= 0) {
+    notify('⚠️ Precio final válido', 'error');
+    return;
+  }
+  // Construir producto
+  const product = {
+    id: _editingProductId || ('P' + Date.now()),
+    name: data.pName.trim(),
+    description: data.pDescription || '',
+    partNumber: data.pPart || '',
+    brand: data.catBrand || '',
+    model: data.catModel || '',
+    componentType: data.catType || '',
+    partSpecific: data.catPart || '',
+    images: data.images || [],
+    cost: data.pCost || 0,
+    margin: data.pMargin || 0,
+    finalPrice: data.pFinal,
+    stock: data.pStock || 0,
+    badge: data.badge || ''
+  };
+  // Guardar categorías
+  if (product.brand && !DB.categories.brands.includes(product.brand)) DB.categories.brands.push(product.brand);
+  if (product.brand && product.model) {
+    if (!DB.categories.models[product.brand]) DB.categories.models[product.brand] = [];
+    if (!DB.categories.models[product.brand].includes(product.model)) DB.categories.models[product.brand].push(product.model);
+  }
+  if (product.partSpecific && !DB.categories.parts.includes(product.partSpecific)) DB.categories.parts.push(product.partSpecific);
+
+  if (_editingProductId) {
+    const idx = DB.products.findIndex(p => p.id === _editingProductId);
+    if (idx !== -1) DB.products[idx] = product;
+    else DB.products.push(product);
+  } else {
+    DB.products.unshift(product);
+  }
+  saveFullData();
+  renderInventoryTable();
+  renderProducts();
+  renderStats();
+  renderCategoriesAdmin();
+  closeModal('productStepModal');
+  notify(_editingProductId ? '✅ Producto actualizado' : '✅ Producto creado');
+  // Limpiar
+  _editingProductId = null;
+  window._editData = null;
+  photoUrls = [];
+  selectedBadge = '';
+}
+
+// ==================== FUNCIONES DE PRODUCTOS (legacy) ====================
 function deleteProduct(id) { if (currentUser?.role !== 'admin') { notify('⛔ Solo el administrador puede eliminar productos', 'error'); return; } if (confirm('¿Eliminar producto?')) { DB.products = DB.products.filter(p => p.id !== id); saveFullData(); renderInventoryTable(); renderProducts(); renderStats(); notify('🗑️ Eliminado'); } }
-function updateCatSelectors() { const brandSel = document.getElementById('catBrand'); if (!brandSel) return; const current = brandSel.value; brandSel.innerHTML = '<option value="">— Marca —</option>' + DB.categories.brands.map(b => `<option value="${escapeHtml(b)}">${escapeHtml(b)}</option>`).join(''); if (current) brandSel.value = current; updateCatModel(); }
-function updateCatModel() { const brand = document.getElementById('catBrand')?.value || ''; const modelSel = document.getElementById('catModel'); if (!modelSel) return; const models = (brand && DB.categories.models[brand]) ? DB.categories.models[brand] : []; modelSel.innerHTML = '<option value="">— Modelo —</option>' + models.map(m => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join(''); updateCatParts(); }
-function updateCatParts() { const partSel = document.getElementById('catPart'); if (!partSel) return; partSel.innerHTML = '<option value="">— Parte —</option>' + DB.categories.parts.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join(''); }
-function addNewCatValue(type) { if (currentUser?.role !== 'admin') { notify('⛔ Solo el administrador puede agregar categorías', 'error'); return; } const labels = { brand: 'marca', model: 'modelo', part: 'parte' }; const val = prompt(`Ingresá nueva ${labels[type]}:`); if (!val || !val.trim()) return; const v = val.trim(); if (type === 'brand') { if (!DB.categories.brands.includes(v)) DB.categories.brands.push(v); updateCatSelectors(); document.getElementById('catBrand').value = v; } else if (type === 'model') { const brand = document.getElementById('catBrand').value; if (!brand) { notify('⚠️ Seleccioná marca primero','error'); return; } if (!DB.categories.models[brand]) DB.categories.models[brand] = []; if (!DB.categories.models[brand].includes(v)) DB.categories.models[brand].push(v); updateCatModel(); document.getElementById('catModel').value = v; } else if (type === 'part') { if (!DB.categories.parts.includes(v)) DB.categories.parts.push(v); updateCatParts(); document.getElementById('catPart').value = v; } saveFullData(); notify(`✅ "${v}" agregado`); }
-function calcFinalPrice() { const cost = parseFloat(document.getElementById('pCost').value) || 0; const margin = parseFloat(document.getElementById('pMargin').value) || 0; const box = document.getElementById('priceCalcBox'); if (cost > 0 && box) { const final = cost * (1 + margin / 100); document.getElementById('pFinalDisplay').textContent = '$' + formatNum(final); document.getElementById('pFinal').value = final.toFixed(2); box.style.display = 'block'; } else if (box) { box.style.display = 'none'; } }
+function updateCatSelectors() { /* Se usa en el modal, ya no es necesario aquí */ }
+function updateCatModel() { /* ya no es necesario */ }
+function updateCatParts() { /* ya no es necesario */ }
+function addNewCatValue(type) { if (currentUser?.role !== 'admin') { notify('⛔ Solo el administrador puede agregar categorías', 'error'); return; } const labels = { brand: 'marca', model: 'modelo', part: 'parte' }; const val = prompt(`Ingresá nueva ${labels[type]}:`); if (!val || !val.trim()) return; const v = val.trim(); if (type === 'brand') { if (!DB.categories.brands.includes(v)) DB.categories.brands.push(v); } else if (type === 'model') { const brand = document.getElementById('catBrand')?.value || window._editData?.brand; if (!brand) { notify('⚠️ Seleccioná marca primero','error'); return; } if (!DB.categories.models[brand]) DB.categories.models[brand] = []; if (!DB.categories.models[brand].includes(v)) DB.categories.models[brand].push(v); } else if (type === 'part') { if (!DB.categories.parts.includes(v)) DB.categories.parts.push(v); } saveFullData(); notify(`✅ "${v}" agregado`); renderStep(); }
+function calcFinalPrice() { /* se usa en el modal, pero lo dejamos */ }
 function toggleBadge(el) { const val = el.dataset.val; if (selectedBadge === val) { selectedBadge = ''; el.classList.remove('active'); } else { selectedBadge = val; document.querySelectorAll('.badge-opt').forEach(b => b.classList.remove('active')); el.classList.add('active'); } }
 function renderStats() { const grid = document.getElementById('statsGrid'); if (!grid) return; const total = DB.products.length, inStock = DB.products.filter(p => p.stock > 0).length, totalOrders = DB.orders.length, delivered = DB.deliveredOrders.length, pendingSales = DB.orders.filter(o => (o.status === 'Pendiente' || o.status === 'Confirmado') && !DB.reviewedSales.includes(o.id)).length, revenue = DB.deliveredOrders.reduce((s, d) => s + d.total, 0), users = DB.users.length; grid.innerHTML = `<div class="stat-card"><div class="stat-val">${total}</div><div class="stat-label">Productos</div></div><div class="stat-card"><div class="stat-val">${inStock}</div><div class="stat-label">Con stock</div></div><div class="stat-card"><div class="stat-val">${totalOrders}</div><div class="stat-label">Pedidos</div></div><div class="stat-card"><div class="stat-val">${delivered}</div><div class="stat-label">Retirados</div></div><div class="stat-card"><div class="stat-val">${pendingSales}</div><div class="stat-label">Nuevas Ventas</div></div><div class="stat-card"><div class="stat-val">$${formatNum(revenue)}</div><div class="stat-label">Ingresos</div></div><div class="stat-card"><div class="stat-val">${users}</div><div class="stat-label">Clientes</div></div>`; }
 function renderNewSaleNotification(){ const c=document.getElementById('newSaleNotification'); if(!c)return; const un=DB.orders.filter(o=>(o.status==='Pendiente'||o.status==='Confirmado')&&!DB.reviewedSales.includes(o.id)); if(!un.length){ c.innerHTML=''; return; } const sale=un[0]; c.innerHTML=`<div class="new-sale-card" onclick="scrollToOrder('${sale.id}')"><div class="new-sale-icon">📦✨</div><h2>🎉 ¡NUEVA VENTA!</h2><p>${sale.id} | $${formatNum(sale.total)} | ${escapeHtml(sale.userName)}</p><button class="btn-review" onclick="event.stopPropagation();markSaleAsReviewed('${sale.id}')">✓ Revisar</button></div>`; }
@@ -2044,13 +2582,13 @@ function closeModal(id){ const m=document.getElementById(id); if(m){ m.classList
 document.querySelectorAll('.modal-overlay').forEach(o=>{o.addEventListener('click',function(e){if(e.target===this)closeModal(this.id);});});
 function exportDB(){ const data=JSON.stringify(DB,null,2); const blob=new Blob([data],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='backup_tienda.json'; a.click(); URL.revokeObjectURL(a.href); notify('✅ Backup guardado'); }
 function triggerImport(){ document.getElementById('importFile').click(); }
-function importDB(e){ const file=e.target.files[0]; if(!file)return; const reader=new FileReader(); reader.onload=(ev)=>{ try{ const data=JSON.parse(ev.target.result); if(data.products!==undefined){ DB=data; if(!DB.deliveredOrders) DB.deliveredOrders=[]; if(!DB.reviewedSales) DB.reviewedSales=[]; saveFullData(); applyStoredConfig(); renderProducts(); renderInventoryTable(); renderStats(); renderAllOrders(); renderDeliveredList(); renderClientsTable(); renderHistoryList(); renderNewSaleNotification(); updateFooter(); updateHeaderLogo(); renderLogoSelector(); renderSeasonalGrid(); renderBanners(); renderFiltersAdmin(); createQuickFilters(); notify('✅ Base cargada'); } else notify('❌ Archivo inválido','error'); } catch(err){ notify('❌ Error al leer','error'); } }; reader.readAsText(file); e.target.value=''; }
+function importDB(e){ const file=e.target.files[0]; if(!file)return; const reader=new FileReader(); reader.onload=(ev)=>{ try{ const data=JSON.parse(ev.target.result); if(data.products!==undefined){ DB=data; if(!DB.deliveredOrders) DB.deliveredOrders=[]; if(!DB.reviewedSales) DB.reviewedSales=[]; saveFullData(); applyStoredConfig(); renderProducts(); renderInventoryTable(); renderStats(); renderAllOrders(); renderDeliveredList(); renderClientsTable(); renderHistoryList(); renderNewSaleNotification(); updateFooter(); updateHeaderLogo(); renderLogoSelector(); renderSeasonalGrid(); renderBanners(); renderFiltersAdmin(); renderCategoriesAdmin(); createQuickFilters(); notify('✅ Base cargada'); } else notify('❌ Archivo inválido','error'); } catch(err){ notify('❌ Error al leer','error'); } }; reader.readAsText(file); e.target.value=''; }
 function openShare(id){ const p=DB.products.find(x=>x.id===id); if(!p)return; document.getElementById('shareGrid').innerHTML=`<div class="share-item" onclick="shareProduct('${id}','whatsapp')"><div class="share-icon" style="background:#25D366">💬</div><span>WhatsApp</span></div><div class="share-item" onclick="shareProduct('${id}','facebook')"><div class="share-icon" style="background:#1877F2">👍</div><span>Facebook</span></div><div class="share-item" onclick="shareProduct('${id}','x')"><div class="share-icon" style="background:#000">𝕏</div><span>X</span></div>`; document.getElementById('sharePanel').classList.add('open'); }
 function closeSharePanel(){ document.getElementById('sharePanel').classList.remove('open'); }
 function shareProduct(id,platform){ const p=DB.products.find(x=>x.id===id); if(!p)return; const storeName=DB.config.storeName||'TechParts Store'; const msg=`🔧 ${p.name}\n💰 $${formatNum(p.finalPrice)}\n📍 ${storeName}`; const text=encodeURIComponent(msg); if(platform==='whatsapp') window.open(`https://wa.me/?text=${text}`,'_blank'); else if(platform==='facebook') window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}&quote=${text}`,'_blank'); else if(platform==='x') window.open(`https://twitter.com/intent/tweet?text=${text}`,'_blank'); closeSharePanel(); }
-function showAdmin(){ if(!currentUser||currentUser.role!=='admin'){ notify('⛔ Acceso denegado. Solo administradores.', 'error'); return; } document.getElementById('storeView').style.display='none'; document.getElementById('adminView').style.display='block'; renderInventoryTable(); renderStats(); renderAllOrders(); renderDeliveredList(); renderClientsTable(); renderHistoryList(); renderNewSaleNotification(); renderFiltersAdmin(); }
+function showAdmin(){ if(!currentUser||currentUser.role!=='admin'){ notify('⛔ Acceso denegado. Solo administradores.', 'error'); return; } document.getElementById('storeView').style.display='none'; document.getElementById('adminView').style.display='block'; renderInventoryTable(); renderStats(); renderAllOrders(); renderDeliveredList(); renderClientsTable(); renderHistoryList(); renderNewSaleNotification(); renderFiltersAdmin(); renderCategoriesAdmin(); }
 function showStore(){ document.getElementById('storeView').style.display='block'; document.getElementById('adminView').style.display='none'; renderProducts(); renderBanners(); startBannerCarousel(); createQuickFilters(); }
-function switchAdminTab(tab,el){ document.querySelectorAll('.admin-tab').forEach(t=>t.classList.remove('active')); if(el)el.classList.add('active'); document.querySelectorAll('.admin-section').forEach(s=>s.classList.remove('active')); document.getElementById('tab-'+tab).classList.add('active'); if(tab==='inventory') renderInventoryTable(); if(tab==='delivered') renderDeliveredList(); if(tab==='clients') renderClientsTable(); if(tab==='history') renderHistoryList(); if(tab==='filters') renderFiltersAdmin(); if(tab==='identity'){ loadIdentityForm(); renderLogoSelector(); } if(tab==='branding'){ renderSeasonalGrid(); if(!bgSelectorInitialized){ createBgSelectorModal(); bgSelectorInitialized=true; } addBgSelectorButton(); } if(tab==='dashboard'){ renderNewSaleNotification(); renderStats(); } }
+function switchAdminTab(tab,el){ document.querySelectorAll('.admin-tab').forEach(t=>t.classList.remove('active')); if(el)el.classList.add('active'); document.querySelectorAll('.admin-section').forEach(s=>s.classList.remove('active')); document.getElementById('tab-'+tab).classList.add('active'); if(tab==='inventory') renderInventoryTable(); if(tab==='delivered') renderDeliveredList(); if(tab==='clients') renderClientsTable(); if(tab==='history') renderHistoryList(); if(tab==='filters') renderFiltersAdmin(); if(tab==='categories') renderCategoriesAdmin(); if(tab==='identity'){ loadIdentityForm(); renderLogoSelector(); } if(tab==='branding'){ renderSeasonalGrid(); if(!bgSelectorInitialized){ createBgSelectorModal(); bgSelectorInitialized=true; } addBgSelectorButton(); } if(tab==='dashboard'){ renderNewSaleNotification(); renderStats(); } }
 function openUserMenu(){ if(!currentUser)return; document.getElementById('userProfileInfo').innerHTML=`<strong>${escapeHtml(currentUser.name)}</strong><br>✉️ ${escapeHtml(currentUser.email)}<br>${currentUser.phone?`📱 ${escapeHtml(currentUser.phone)}<br>`:''}${currentUser.address?`📍 ${escapeHtml(currentUser.address)}`:''}<button class="btn-secondary" style="margin-top:10px" onclick="openEditProfileModal()">✏️ Editar perfil</button>`; const myOrders=DB.orders.filter(o=>o.userId===currentUser.email); document.getElementById('myOrdersList').innerHTML=myOrders.length?myOrders.map(o=>renderOrderCard(o,false)).join(''):'<p style="color:var(--text3);font-size:0.82rem">Sin pedidos</p>'; openModal('userMenuModal'); }
 function openEditProfileModal(){ if(!currentUser)return; const html=`<div class="modal-overlay" id="editProfileModal"><div class="modal-box"><div class="modal-header"><h2>✏️ Editar Perfil</h2><button class="modal-close" onclick="closeModal('editProfileModal')">✕</button></div><div class="modal-body"><div class="form-group"><label>Nombre</label><input type="text" id="editProfileName" value="${escapeHtml(currentUser.name)}"></div><div class="form-group"><label>Teléfono</label><input type="tel" id="editProfilePhone" value="${escapeHtml(currentUser.phone||'')}"></div><div class="form-group"><label>Dirección</label><input type="text" id="editProfileAddress" value="${escapeHtml(currentUser.address||'')}"></div><div class="form-group"><label>Nueva contraseña</label><input type="password" id="editProfilePassword" placeholder="Dejar vacío para no cambiar"></div><button class="btn-primary" onclick="saveProfileChanges()">Guardar</button><button class="btn-secondary" onclick="closeModal('editProfileModal')">Cancelar</button></div></div></div>`; document.body.insertAdjacentHTML('beforeend',html); document.getElementById('editProfileModal').classList.add('open'); }
 function saveProfileChanges(){ if(!currentUser)return; const newName=document.getElementById('editProfileName').value.trim(); const newPhone=document.getElementById('editProfilePhone').value.trim(); const newAddress=document.getElementById('editProfileAddress').value.trim(); const newPass=document.getElementById('editProfilePassword').value; if(!newName){ notify('⚠️ Nombre requerido','error'); return; } const idx=DB.users.findIndex(u=>u.email===currentUser.email); if(idx!==-1){ DB.users[idx].name=newName; DB.users[idx].phone=newPhone; DB.users[idx].address=newAddress; DB.users[idx].updatedAt=Date.now(); if(newPass.length>=6) DB.users[idx].password=newPass; } currentUser.name=newName; currentUser.phone=newPhone; currentUser.address=newAddress; if(newPass.length>=6) currentUser.password=newPass; saveFullData(); updateAuthUI(); closeModal('editProfileModal'); notify('✅ Perfil actualizado'); }
