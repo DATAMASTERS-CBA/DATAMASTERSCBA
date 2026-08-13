@@ -174,13 +174,22 @@ body {
   background-position: center center !important; 
   background-attachment: fixed !important;
   -webkit-overflow-scrolling: touch;
+  /* Eliminamos cualquier posible difuminado */
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 @media (max-width: 768px) {
-  body { background-attachment: scroll !important; }
+  body {
+    background-attachment: scroll !important;
+  }
 }
 
-#adminView { background: var(--surface); min-height: 100vh; padding-bottom: 40px; }
+#adminView {
+  background: var(--surface);
+  min-height: 100vh;
+  padding-bottom: 40px;
+}
 
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes slideInLeft { from { transform: translateX(-100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
@@ -248,6 +257,7 @@ body {
   100% { transform: scaleY(1); transform-origin: top; opacity: 1; }
 }
 
+/* Las clases de animación se añadirán dinámicamente con el observer */
 .product-card.anim-explosion { animation: animExplosion 0.8s ease forwards; }
 .product-card.anim-implosion { animation: animImplosion 0.8s ease forwards; }
 .product-card.anim-difuminado { animation: animDifuminado 0.8s ease forwards; }
@@ -928,16 +938,30 @@ footer {
 .share-item:hover .share-icon { transform: scale(1.12); }
 .share-item span { font-size: 0.75rem; font-weight: 600; color: var(--text2); }
 
+/* ===== MEJORAS PARA MÓVIL ===== */
 @media (max-width: 768px) {
-  #header { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; padding: 0 12px; }
+  #header {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    padding: 0 12px;
+  }
   .header-inner { flex-wrap: wrap; height: auto; padding: 10px 0; gap: 10px; }
   .search-wrap { order: 3; width: 100%; max-width: none; }
   .product-detail-grid { grid-template-columns: 1fr; }
   .banner-carousel { height: 160px; }
   .banner-content h2 { font-size: 1.4rem; }
   .form-row { grid-template-columns: 1fr; }
-  .products-grid { grid-template-columns: repeat(auto-fill, minmax(160px,1fr)); }
-  .card-img-wrap { height: 150px; }
+  /* 3 columnas en móvil */
+  .products-grid { grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .card-img-wrap { height: 120px; }
+  .card-body { padding: 8px 10px; }
+  .card-name { font-size: 0.75rem; }
+  .card-price { font-size: 1rem; }
+  .card-brand { font-size: 0.6rem; }
+  .card-part { font-size: 0.6rem; }
+  .card-footer { padding: 6px 8px; flex-wrap: wrap; }
+  .btn-cart { font-size: 0.65rem; padding: 6px 4px; }
+  .btn-share { font-size: 12px; padding: 6px 8px; }
   .new-sale-card h2 { font-size: 1.2rem; }
   .new-sale-icon { font-size: 36px; }
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
@@ -1342,6 +1366,9 @@ let _realtimeBannersUnsubscribe = null;
 let _isDataLoadedFromCloud = false;
 let _initialRenderDone = false;
 
+// Observador para animaciones al hacer scroll
+let _productObserver = null;
+
 const seasonalBackgrounds = {
   "ene": { name: "🎆 Año Nuevo", gradient: "linear-gradient(135deg,#1a1a2e 0%,#16213e 25%,#0f3460 50%,#e94560 100%)", icon: "🎆" },
   "feb": { name: "💕 San Valentín", gradient: "linear-gradient(135deg,#ff6b6b 0%,#c92a2a 25%,#ff8787 50%,#ff6b6b 100%)", icon: "💕" },
@@ -1623,6 +1650,35 @@ function previewProduct(id) {
   openModal('adminPreviewModal');
 }
 
+// ==================== OBSERVER PARA ANIMACIONES AL SCROLL ====================
+function setupProductObserver() {
+  if (_productObserver) _productObserver.disconnect();
+  const options = {
+    root: null,
+    rootMargin: '0px 0px -50px 0px',
+    threshold: 0.1
+  };
+  _productObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const card = entry.target;
+        const effect = card.dataset.effect || DB.config.productEffect || 'none';
+        if (effect !== 'none') {
+          // Evitar aplicar la animación más de una vez
+          if (!card.classList.contains('anim-triggered')) {
+            card.classList.add(`anim-${effect}`, 'anim-triggered');
+          }
+        }
+      }
+    });
+  }, options);
+
+  // Observar todas las tarjetas de producto existentes
+  document.querySelectorAll('.product-card').forEach(card => {
+    _productObserver.observe(card);
+  });
+}
+
 // ==================== CARGA DESDE NUBE (CON TIMEOUT) ====================
 function loadDataFromCloud() {
   const grid = document.getElementById('productsGrid');
@@ -1734,6 +1790,8 @@ function loadDataFromCloud() {
       }
       const grid = document.getElementById('productsGrid');
       if (grid) grid.classList.add('visible');
+      // Configurar observer después de que los productos estén renderizados
+      setTimeout(setupProductObserver, 100);
     }
   }
   checkFirebase();
@@ -2353,7 +2411,7 @@ function renderPhotoList() {
 function updatePhotoPreview(input, i) { photoUrls[i] = input.value; const img = input.previousElementSibling; if (img) img.src = input.value || 'https://via.placeholder.com/50?text=Preview'; }
 function removePhoto(i) { if (currentUser?.role !== 'admin') { notify('⛔ Solo el administrador puede eliminar imágenes', 'error'); return; } photoUrls.splice(i, 1); renderPhotoList(); notify('🗑️ Imagen eliminada', 'info'); }
 
-// ===== RENDER PRODUCTOS MEJORADO (con efecto) =====
+// ===== RENDER PRODUCTOS MEJORADO (con efecto al scroll) =====
 function renderProducts() {
   const grid = document.getElementById('productsGrid');
   if (!grid) return;
@@ -2372,13 +2430,17 @@ function renderProducts() {
     const countSpan = document.getElementById('resultsCount');
     if (countSpan) countSpan.textContent = `${prods.length} producto${prods.length !== 1 ? 's' : ''}`;
     const effect = DB.config.productEffect || 'none';
-    const effectClass = effect !== 'none' ? `anim-${effect}` : '';
+    // No añadimos la clase de animación aquí, solo data-effect para el observer
     if (prods.length === 0) {
       grid.innerHTML = `<div class="no-products" style="grid-column:1/-1"><div class="icon">🔍</div><h3>Sin resultados</h3><p>${searchQuery ? 'No se encontraron productos para "' + escapeHtml(searchQuery) + '"' : 'No hay productos disponibles'}</p></div>`;
     } else {
-      grid.innerHTML = prods.map(p => `<div class="product-card ${effectClass}" onclick="openProduct('${p.id}')"><div class="card-img-wrap"><img src="${p.images && p.images[0] ? p.images[0] : 'https://via.placeholder.com/300'}" alt="${escapeHtml(p.name)}" onerror="this.src='https://via.placeholder.com/300'" loading="lazy" decoding="async"><div class="card-badges">${p.badge ? `<span class="badge badge-${p.badge.toLowerCase()}">${p.badge}</span>` : ''}</div></div><div class="card-body"><div class="card-brand">${[p.brand, p.model].filter(Boolean).join(' • ')}</div><div class="card-name">${escapeHtml(p.name)}</div>${p.partNumber ? `<div class="card-part">P/N: ${p.partNumber}</div>` : ''}<div class="card-price"><span class="currency">$</span>${formatNum(p.finalPrice)}</div><div class="card-stock">${stockLabel(p.stock)}</div></div><div class="card-footer"><button class="btn-cart" onclick="event.stopPropagation();addToCart('${p.id}')">🛒 Agregar</button><button class="btn-share" onclick="event.stopPropagation();openShare('${p.id}')">📤</button></div></div>`).join('');
+      grid.innerHTML = prods.map(p => `<div class="product-card" data-effect="${effect}" onclick="openProduct('${p.id}')"><div class="card-img-wrap"><img src="${p.images && p.images[0] ? p.images[0] : 'https://via.placeholder.com/300'}" alt="${escapeHtml(p.name)}" onerror="this.src='https://via.placeholder.com/300'" loading="lazy" decoding="async"><div class="card-badges">${p.badge ? `<span class="badge badge-${p.badge.toLowerCase()}">${p.badge}</span>` : ''}</div></div><div class="card-body"><div class="card-brand">${[p.brand, p.model].filter(Boolean).join(' • ')}</div><div class="card-name">${escapeHtml(p.name)}</div>${p.partNumber ? `<div class="card-part">P/N: ${p.partNumber}</div>` : ''}<div class="card-price"><span class="currency">$</span>${formatNum(p.finalPrice)}</div><div class="card-stock">${stockLabel(p.stock)}</div></div><div class="card-footer"><button class="btn-cart" onclick="event.stopPropagation();addToCart('${p.id}')">🛒 Agregar</button><button class="btn-share" onclick="event.stopPropagation();openShare('${p.id}')">📤</button></div></div>`).join('');
     }
-    requestAnimationFrame(() => { grid.classList.add('visible'); });
+    requestAnimationFrame(() => {
+      grid.classList.add('visible');
+      // Configurar observer después de renderizar
+      setTimeout(setupProductObserver, 50);
+    });
   } catch(e) {
     console.error('Error en renderProducts:', e);
     grid.innerHTML = '<p style="padding:40px;text-align:center">Error al cargar productos</p>';
@@ -2388,19 +2450,18 @@ function renderProducts() {
 
 // ===== APLICAR EFECTO DESDE ADMIN =====
 function applyProductEffect(effect) {
-  const previewCards = document.querySelectorAll('.product-card');
-  const effects = ['explosion','implosion','difuminado','estrellas','windows','matrix','espacial','humo','flash','persiana'];
-  previewCards.forEach(card => {
+  // Actualizar data-effect de las tarjetas y reiniciar observer
+  document.querySelectorAll('.product-card').forEach(card => {
+    card.dataset.effect = effect;
+    // Si ya tiene clase de animación, se la quitamos para que se pueda volver a activar
+    const effects = ['explosion','implosion','difuminado','estrellas','windows','matrix','espacial','humo','flash','persiana'];
     effects.forEach(e => card.classList.remove(`anim-${e}`));
-    if (effect !== 'none') {
-      card.classList.add(`anim-${effect}`);
-      card.style.animation = 'none';
-      card.offsetHeight;
-      card.style.animation = '';
-    }
+    card.classList.remove('anim-triggered');
   });
   const sel = document.getElementById('productEffectSelector');
   if (sel) sel.value = effect;
+  // Reiniciar observer
+  setupProductObserver();
 }
 
 function saveProductEffect() {
@@ -2413,8 +2474,15 @@ function saveProductEffect() {
   const effect = sel.value;
   DB.config.productEffect = effect;
   saveFullData();
-  renderProducts();
-  notify(`✅ Efecto "${effect}" guardado y aplicado`);
+  // Actualizar todas las tarjetas y reiniciar observer
+  document.querySelectorAll('.product-card').forEach(card => {
+    card.dataset.effect = effect;
+    const effects = ['explosion','implosion','difuminado','estrellas','windows','matrix','espacial','humo','flash','persiana'];
+    effects.forEach(e => card.classList.remove(`anim-${e}`));
+    card.classList.remove('anim-triggered');
+  });
+  setupProductObserver();
+  notify(`✅ Efecto "${effect}" guardado. Se activará al hacer scroll.`);
 }
 
 // ===== FUNCIONES DE BÚSQUEDA Y FILTROS =====
