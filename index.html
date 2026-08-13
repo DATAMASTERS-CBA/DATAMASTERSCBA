@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Data-Masters ventas</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -174,6 +174,7 @@ body {
   background-position: center center !important; 
   background-attachment: fixed !important;
   -webkit-overflow-scrolling: touch;
+  overflow-x: hidden;
 }
 
 @media (max-width: 768px) {
@@ -930,52 +931,80 @@ footer {
 
 /* ===== MEJORAS PARA MÓVIL (estilo galería) ===== */
 @media (max-width: 768px) {
-  #header { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; padding: 0 12px; }
-  .header-inner { flex-wrap: wrap; height: auto; padding: 10px 0; gap: 10px; }
-  .search-wrap { order: 3; width: 100%; max-width: none; }
+  #header { 
+    backdrop-filter: none !important; 
+    -webkit-backdrop-filter: none !important; 
+    padding: 0 12px;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+  }
+  .header-inner { flex-wrap: wrap; height: auto; padding: 10px 0; gap: 8px; }
+  .search-wrap { order: 3; width: 100%; max-width: none; margin-top: 4px; }
   .product-detail-grid { grid-template-columns: 1fr; }
-  .banner-carousel { height: 160px; border-radius: 12px; margin: 12px 0; }
-  .banner-content h2 { font-size: 1.4rem; }
-  .banner-content p { font-size: 0.9rem; }
+  .banner-carousel { height: auto; min-height: 140px; border-radius: 12px; margin: 12px 0; }
+  .banner-slide { padding: 16px 20px; height: 100%; min-height: 140px; }
+  .banner-content h2 { font-size: 1.3rem; }
+  .banner-content p { font-size: 0.85rem; }
   .form-row { grid-template-columns: 1fr; }
   .products-grid {
-    grid-template-columns: 1fr; /* una sola columna */
-    gap: 16px;
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
     padding: 0 4px;
+    opacity: 1 !important;
+    transition: none !important;
+    will-change: auto !important;
+  }
+  .products-grid.visible {
+    opacity: 1 !important;
   }
   .product-card {
-    border-radius: 16px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    border-radius: 14px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
     border-width: 1px;
+    will-change: auto !important;
+    backface-visibility: visible !important;
+    transform: none !important;
+    animation: none !important;
+    transition: none !important;
   }
-  .card-img-wrap {
-    height: 180px; /* imagen más grande */
+  .product-card:hover {
+    transform: none !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06) !important;
   }
-  .card-img-wrap img {
-    padding: 10px;
-    object-fit: contain;
+  .product-card .card-img-wrap {
+    overflow: visible;
+    height: 160px;
+  }
+  .product-card .card-img-wrap img {
+    padding: 8px;
+    transition: none !important;
+  }
+  .product-card:hover .card-img-wrap img {
+    transform: none !important;
   }
   .card-body {
-    padding: 12px 14px 14px;
+    padding: 10px 12px 12px;
   }
   .card-name {
-    font-size: 1rem;
+    font-size: 0.95rem;
     -webkit-line-clamp: 2;
   }
   .card-price {
-    font-size: 1.3rem;
+    font-size: 1.2rem;
   }
   .card-footer {
-    padding: 10px 14px;
+    padding: 8px 12px;
     gap: 6px;
   }
   .btn-cart {
-    padding: 12px;
-    font-size: 0.9rem;
+    padding: 10px 12px;
+    font-size: 0.85rem;
     border-radius: 30px;
   }
   .btn-share {
-    padding: 12px 14px;
+    padding: 10px 12px;
+    font-size: 14px;
   }
   .filter-chips {
     margin-left: 0;
@@ -984,13 +1013,13 @@ footer {
     gap: 6px;
   }
   .chip {
-    padding: 6px 14px;
-    font-size: 0.8rem;
+    padding: 6px 12px;
+    font-size: 0.75rem;
   }
   .toolbar {
     flex-direction: column;
     align-items: stretch;
-    gap: 10px;
+    gap: 8px;
   }
   .toolbar-label {
     display: none;
@@ -1001,17 +1030,25 @@ footer {
   }
   .results-count {
     text-align: center;
+    font-size: 0.8rem;
   }
   .modal-box {
     max-width: 100%;
     margin: 10px;
     border-radius: 16px;
+    max-height: 95vh;
+    overflow-y: auto;
+  }
+  .modal-overlay {
+    padding: 10px;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
   }
   .modal-header {
     padding: 14px 16px;
   }
   .modal-body {
-    padding: 16px;
+    padding: 14px 16px;
   }
   .product-detail-grid {
     gap: 16px;
@@ -1027,8 +1064,8 @@ footer {
     gap: 4px;
   }
   .admin-tab {
-    padding: 6px 12px;
-    font-size: 0.8rem;
+    padding: 6px 10px;
+    font-size: 0.75rem;
     flex: 1 0 auto;
   }
   .inv-toolbar {
@@ -1040,21 +1077,21 @@ footer {
     gap: 10px;
   }
   .stat-val {
-    font-size: 1.4rem;
+    font-size: 1.2rem;
   }
   .stat-card {
-    padding: 14px;
+    padding: 12px;
   }
   .add-product-form {
-    padding: 16px;
+    padding: 14px;
   }
   .cart-item {
     flex-wrap: wrap;
     padding: 10px;
   }
   .cart-item-img {
-    width: 50px;
-    height: 50px;
+    width: 48px;
+    height: 48px;
   }
   .cart-total-val {
     font-size: 1.2rem;
@@ -1063,7 +1100,7 @@ footer {
     grid-template-columns: repeat(4, 1fr);
   }
   .banner-dots {
-    bottom: 10px;
+    bottom: 8px;
   }
   .banner-dot {
     width: 6px;
@@ -1104,14 +1141,14 @@ footer {
   }
   .banner-slide {
     transition: opacity 0.3s ease;
-    padding: 20px;
+    padding: 16px 20px;
   }
   body {
     background-attachment: scroll !important;
   }
   .header-actions .hbtn {
     padding: 6px 10px;
-    font-size: 0.75rem;
+    font-size: 0.7rem;
   }
   .hbtn .cart-count {
     width: 18px;
@@ -1135,7 +1172,7 @@ footer {
     font-size: 17px;
   }
   .main-wrap {
-    padding: 0 12px 24px;
+    padding: 0 10px 20px;
   }
   .footer-grid {
     grid-template-columns: 1fr;
@@ -1151,18 +1188,18 @@ footer {
   .notif {
     max-width: 90%;
     font-size: 0.8rem;
-    padding: 12px 16px;
+    padding: 10px 14px;
   }
   #quickFiltersContainer {
     justify-content: center;
     gap: 6px;
   }
   #quickFiltersContainer .chip {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     padding: 4px 10px;
   }
   .order-card {
-    padding: 14px;
+    padding: 12px;
   }
   .order-header {
     flex-direction: column;
@@ -1172,11 +1209,11 @@ footer {
     align-self: flex-start;
   }
   .history-filters {
-    gap: 8px;
+    gap: 6px;
   }
   .history-status-filter {
-    padding: 4px 12px;
-    font-size: 0.75rem;
+    padding: 4px 10px;
+    font-size: 0.7rem;
   }
   .delivered-card {
     padding: 12px;
@@ -1189,21 +1226,23 @@ footer {
     flex-wrap: wrap;
   }
   .admin-wrap {
-    padding: 12px;
+    padding: 10px;
   }
   .admin-header h1 {
-    font-size: 1.3rem;
+    font-size: 1.2rem;
   }
   .inv-table-wrap {
     border-radius: 8px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
   .inv-table td, .inv-table th {
-    padding: 8px 10px;
-    font-size: 0.75rem;
+    padding: 6px 8px;
+    font-size: 0.7rem;
   }
   .tbl-img {
-    width: 32px;
-    height: 32px;
+    width: 30px;
+    height: 30px;
   }
   .inv-toolbar input {
     font-size: 0.85rem;
@@ -1213,6 +1252,9 @@ footer {
   }
   #invLayout {
     grid-template-columns: 1fr !important;
+  }
+  .payment-methods {
+    grid-template-columns: 1fr 1fr;
   }
 }
 
@@ -2648,6 +2690,18 @@ function renderProducts() {
 
 // ===== APLICAR EFECTO DESDE ADMIN =====
 function applyProductEffect(effect) {
+  // En móvil no aplicar efectos para evitar parpadeos
+  if (window.innerWidth <= 768) {
+    // Quitar cualquier clase de efecto
+    const previewCards = document.querySelectorAll('.product-card');
+    const effects = ['explosion','implosion','difuminado','estrellas','windows','matrix','espacial','humo','flash','persiana'];
+    previewCards.forEach(card => {
+      effects.forEach(e => card.classList.remove(`anim-${e}`));
+    });
+    const sel = document.getElementById('productEffectSelector');
+    if (sel) sel.value = 'none';
+    return;
+  }
   const previewCards = document.querySelectorAll('.product-card');
   const effects = ['explosion','implosion','difuminado','estrellas','windows','matrix','espacial','humo','flash','persiana'];
   previewCards.forEach(card => {
