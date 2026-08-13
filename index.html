@@ -174,21 +174,13 @@ body {
   background-position: center center !important; 
   background-attachment: fixed !important;
   -webkit-overflow-scrolling: touch;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
 }
 
 @media (max-width: 768px) {
-  body {
-    background-attachment: fixed !important;
-  }
+  body { background-attachment: scroll !important; }
 }
 
-#adminView {
-  background: var(--surface);
-  min-height: 100vh;
-  padding-bottom: 40px;
-}
+#adminView { background: var(--surface); min-height: 100vh; padding-bottom: 40px; }
 
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes slideInLeft { from { transform: translateX(-100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
@@ -936,55 +928,292 @@ footer {
 .share-item:hover .share-icon { transform: scale(1.12); }
 .share-item span { font-size: 0.75rem; font-weight: 600; color: var(--text2); }
 
-/* ===== MEJORAS PARA MÓVIL: se mantiene el diseño de escritorio, solo se ajustan fuentes y padding ===== */
+/* ===== MEJORAS PARA MÓVIL (estilo galería) ===== */
 @media (max-width: 768px) {
-  #header {
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-    padding: 0 12px;
-  }
+  #header { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; padding: 0 12px; }
   .header-inner { flex-wrap: wrap; height: auto; padding: 10px 0; gap: 10px; }
   .search-wrap { order: 3; width: 100%; max-width: none; }
   .product-detail-grid { grid-template-columns: 1fr; }
-  .banner-carousel { height: 160px; }
+  .banner-carousel { height: 160px; border-radius: 12px; margin: 12px 0; }
   .banner-content h2 { font-size: 1.4rem; }
+  .banner-content p { font-size: 0.9rem; }
   .form-row { grid-template-columns: 1fr; }
-  /* Mantener el grid como en escritorio (auto-fill) pero con tamaños de fuente más grandes para legibilidad */
   .products-grid {
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    grid-template-columns: 1fr; /* una sola columna */
+    gap: 16px;
+    padding: 0 4px;
+  }
+  .product-card {
+    border-radius: 16px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    border-width: 1px;
+  }
+  .card-img-wrap {
+    height: 180px; /* imagen más grande */
+  }
+  .card-img-wrap img {
+    padding: 10px;
+    object-fit: contain;
+  }
+  .card-body {
+    padding: 12px 14px 14px;
+  }
+  .card-name {
+    font-size: 1rem;
+    -webkit-line-clamp: 2;
+  }
+  .card-price {
+    font-size: 1.3rem;
+  }
+  .card-footer {
+    padding: 10px 14px;
+    gap: 6px;
+  }
+  .btn-cart {
+    padding: 12px;
+    font-size: 0.9rem;
+    border-radius: 30px;
+  }
+  .btn-share {
+    padding: 12px 14px;
+  }
+  .filter-chips {
+    margin-left: 0;
+    width: 100%;
+    justify-content: center;
+    gap: 6px;
+  }
+  .chip {
+    padding: 6px 14px;
+    font-size: 0.8rem;
+  }
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .toolbar-label {
+    display: none;
+  }
+  .sort-select {
+    width: 100%;
+    padding: 10px;
+  }
+  .results-count {
+    text-align: center;
+  }
+  .modal-box {
+    max-width: 100%;
+    margin: 10px;
+    border-radius: 16px;
+  }
+  .modal-header {
+    padding: 14px 16px;
+  }
+  .modal-body {
+    padding: 16px;
+  }
+  .product-detail-grid {
     gap: 16px;
   }
-  .card-img-wrap { height: 160px; }
-  .card-body { padding: 12px 14px; }
-  .card-name { font-size: 1rem; }
-  .card-price { font-size: 1.2rem; }
-  .card-brand { font-size: 0.7rem; }
-  .card-part { font-size: 0.7rem; }
-  .card-stock { font-size: 0.7rem; }
-  .card-footer { padding: 10px 14px; flex-wrap: wrap; gap: 8px; }
-  .btn-cart { font-size: 0.8rem; padding: 8px 12px; }
-  .btn-share { font-size: 14px; padding: 8px 12px; }
-  .badge { font-size: 0.6rem; padding: 3px 6px; }
-  .new-sale-card h2 { font-size: 1.2rem; }
-  .new-sale-icon { font-size: 36px; }
-  .stats-grid { grid-template-columns: repeat(2, 1fr); }
-  .stat-val { font-size: 1.4rem; }
-  .toolbar { gap: 8px; }
-  .sort-select { font-size: 0.8rem; padding: 6px 10px; }
-  .chip { font-size: 0.7rem; padding: 4px 10px; }
-  .results-count { font-size: 0.75rem; }
-  .product-card:hover { transform: none !important; }
-  .product-card:hover .card-img-wrap img { transform: none !important; }
-  .btn-cart:hover { transform: none !important; }
-  .new-sale-card:hover { transform: none !important; }
-  .theme-card:hover { transform: none !important; }
-  .logo-option:hover { transform: none !important; }
-  .seasonal-card:hover { transform: none !important; }
-  .btn-primary:hover { transform: none !important; }
-  .btn-secondary:hover { transform: none !important; }
-  .btn-review:hover { transform: none !important; }
-  .banner-slide { transition: opacity 0.3s ease; }
-  body { background-attachment: fixed !important; }
+  .pd-main-img {
+    aspect-ratio: 1;
+  }
+  .pd-price {
+    font-size: 1.8rem;
+  }
+  .admin-tabs {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .admin-tab {
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    flex: 1 0 auto;
+  }
+  .inv-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  .stat-val {
+    font-size: 1.4rem;
+  }
+  .stat-card {
+    padding: 14px;
+  }
+  .add-product-form {
+    padding: 16px;
+  }
+  .cart-item {
+    flex-wrap: wrap;
+    padding: 10px;
+  }
+  .cart-item-img {
+    width: 50px;
+    height: 50px;
+  }
+  .cart-total-val {
+    font-size: 1.2rem;
+  }
+  .share-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .banner-dots {
+    bottom: 10px;
+  }
+  .banner-dot {
+    width: 6px;
+    height: 6px;
+  }
+  .banner-dot.active {
+    width: 18px;
+  }
+  .product-card:hover {
+    transform: none !important;
+  }
+  .product-card:hover .card-img-wrap img {
+    transform: none !important;
+  }
+  .btn-cart:hover {
+    transform: none !important;
+  }
+  .new-sale-card:hover {
+    transform: none !important;
+  }
+  .theme-card:hover {
+    transform: none !important;
+  }
+  .logo-option:hover {
+    transform: none !important;
+  }
+  .seasonal-card:hover {
+    transform: none !important;
+  }
+  .btn-primary:hover {
+    transform: none !important;
+  }
+  .btn-secondary:hover {
+    transform: none !important;
+  }
+  .btn-review:hover {
+    transform: none !important;
+  }
+  .banner-slide {
+    transition: opacity 0.3s ease;
+    padding: 20px;
+  }
+  body {
+    background-attachment: scroll !important;
+  }
+  .header-actions .hbtn {
+    padding: 6px 10px;
+    font-size: 0.75rem;
+  }
+  .hbtn .cart-count {
+    width: 18px;
+    height: 18px;
+    font-size: 0.6rem;
+  }
+  .search-wrap input {
+    padding: 8px 12px;
+    font-size: 0.85rem;
+  }
+  .search-btn {
+    padding: 0 12px;
+    font-size: 16px;
+  }
+  .logo-text {
+    font-size: 1rem;
+  }
+  .logo-icon {
+    width: 34px;
+    height: 34px;
+    font-size: 17px;
+  }
+  .main-wrap {
+    padding: 0 12px 24px;
+  }
+  .footer-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  .footer-bottom {
+    flex-direction: column;
+    text-align: center;
+  }
+  .identity-preview .store-name {
+    font-size: 1.2rem;
+  }
+  .notif {
+    max-width: 90%;
+    font-size: 0.8rem;
+    padding: 12px 16px;
+  }
+  #quickFiltersContainer {
+    justify-content: center;
+    gap: 6px;
+  }
+  #quickFiltersContainer .chip {
+    font-size: 0.75rem;
+    padding: 4px 10px;
+  }
+  .order-card {
+    padding: 14px;
+  }
+  .order-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .order-status {
+    align-self: flex-start;
+  }
+  .history-filters {
+    gap: 8px;
+  }
+  .history-status-filter {
+    padding: 4px 12px;
+    font-size: 0.75rem;
+  }
+  .delivered-card {
+    padding: 12px;
+  }
+  .delivered-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .delivered-actions {
+    flex-wrap: wrap;
+  }
+  .admin-wrap {
+    padding: 12px;
+  }
+  .admin-header h1 {
+    font-size: 1.3rem;
+  }
+  .inv-table-wrap {
+    border-radius: 8px;
+  }
+  .inv-table td, .inv-table th {
+    padding: 8px 10px;
+    font-size: 0.75rem;
+  }
+  .tbl-img {
+    width: 32px;
+    height: 32px;
+  }
+  .inv-toolbar input {
+    font-size: 0.85rem;
+  }
+  #addProductSidebar {
+    margin-top: 16px;
+  }
+  #invLayout {
+    grid-template-columns: 1fr !important;
+  }
 }
 
 .page-loading {
@@ -1373,9 +1602,6 @@ let _realtimeBannersUnsubscribe = null;
 let _isDataLoadedFromCloud = false;
 let _initialRenderDone = false;
 
-// Observador para animaciones al hacer scroll
-let _productObserver = null;
-
 const seasonalBackgrounds = {
   "ene": { name: "🎆 Año Nuevo", gradient: "linear-gradient(135deg,#1a1a2e 0%,#16213e 25%,#0f3460 50%,#e94560 100%)", icon: "🎆" },
   "feb": { name: "💕 San Valentín", gradient: "linear-gradient(135deg,#ff6b6b 0%,#c92a2a 25%,#ff8787 50%,#ff6b6b 100%)", icon: "💕" },
@@ -1657,35 +1883,6 @@ function previewProduct(id) {
   openModal('adminPreviewModal');
 }
 
-// ==================== OBSERVER PARA ANIMACIONES AL SCROLL ====================
-function setupProductObserver() {
-  if (_productObserver) _productObserver.disconnect();
-  const options = {
-    root: null,
-    rootMargin: '0px 0px -50px 0px',
-    threshold: 0.1
-  };
-  _productObserver = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        const card = entry.target;
-        const effect = card.dataset.effect || DB.config.productEffect || 'none';
-        if (effect !== 'none') {
-          // Evitar aplicar la animación más de una vez
-          if (!card.classList.contains('anim-triggered')) {
-            card.classList.add(`anim-${effect}`, 'anim-triggered');
-          }
-        }
-      }
-    });
-  }, options);
-
-  // Observar todas las tarjetas de producto existentes
-  document.querySelectorAll('.product-card').forEach(card => {
-    _productObserver.observe(card);
-  });
-}
-
 // ==================== CARGA DESDE NUBE (CON TIMEOUT) ====================
 function loadDataFromCloud() {
   const grid = document.getElementById('productsGrid');
@@ -1797,8 +1994,6 @@ function loadDataFromCloud() {
       }
       const grid = document.getElementById('productsGrid');
       if (grid) grid.classList.add('visible');
-      // Configurar observer después de que los productos estén renderizados
-      setTimeout(setupProductObserver, 100);
     }
   }
   checkFirebase();
@@ -2418,7 +2613,7 @@ function renderPhotoList() {
 function updatePhotoPreview(input, i) { photoUrls[i] = input.value; const img = input.previousElementSibling; if (img) img.src = input.value || 'https://via.placeholder.com/50?text=Preview'; }
 function removePhoto(i) { if (currentUser?.role !== 'admin') { notify('⛔ Solo el administrador puede eliminar imágenes', 'error'); return; } photoUrls.splice(i, 1); renderPhotoList(); notify('🗑️ Imagen eliminada', 'info'); }
 
-// ===== RENDER PRODUCTOS MEJORADO (con efecto al scroll) =====
+// ===== RENDER PRODUCTOS MEJORADO (con efecto) =====
 function renderProducts() {
   const grid = document.getElementById('productsGrid');
   if (!grid) return;
@@ -2437,17 +2632,13 @@ function renderProducts() {
     const countSpan = document.getElementById('resultsCount');
     if (countSpan) countSpan.textContent = `${prods.length} producto${prods.length !== 1 ? 's' : ''}`;
     const effect = DB.config.productEffect || 'none';
-    // No añadimos la clase de animación aquí, solo data-effect para el observer
+    const effectClass = effect !== 'none' ? `anim-${effect}` : '';
     if (prods.length === 0) {
       grid.innerHTML = `<div class="no-products" style="grid-column:1/-1"><div class="icon">🔍</div><h3>Sin resultados</h3><p>${searchQuery ? 'No se encontraron productos para "' + escapeHtml(searchQuery) + '"' : 'No hay productos disponibles'}</p></div>`;
     } else {
-      grid.innerHTML = prods.map(p => `<div class="product-card" data-effect="${effect}" onclick="openProduct('${p.id}')"><div class="card-img-wrap"><img src="${p.images && p.images[0] ? p.images[0] : 'https://via.placeholder.com/300'}" alt="${escapeHtml(p.name)}" onerror="this.src='https://via.placeholder.com/300'" loading="lazy" decoding="async"><div class="card-badges">${p.badge ? `<span class="badge badge-${p.badge.toLowerCase()}">${p.badge}</span>` : ''}</div></div><div class="card-body"><div class="card-brand">${[p.brand, p.model].filter(Boolean).join(' • ')}</div><div class="card-name">${escapeHtml(p.name)}</div>${p.partNumber ? `<div class="card-part">P/N: ${p.partNumber}</div>` : ''}<div class="card-price"><span class="currency">$</span>${formatNum(p.finalPrice)}</div><div class="card-stock">${stockLabel(p.stock)}</div></div><div class="card-footer"><button class="btn-cart" onclick="event.stopPropagation();addToCart('${p.id}')">🛒 Agregar</button><button class="btn-share" onclick="event.stopPropagation();openShare('${p.id}')">📤</button></div></div>`).join('');
+      grid.innerHTML = prods.map(p => `<div class="product-card ${effectClass}" onclick="openProduct('${p.id}')"><div class="card-img-wrap"><img src="${p.images && p.images[0] ? p.images[0] : 'https://via.placeholder.com/300'}" alt="${escapeHtml(p.name)}" onerror="this.src='https://via.placeholder.com/300'" loading="lazy" decoding="async"><div class="card-badges">${p.badge ? `<span class="badge badge-${p.badge.toLowerCase()}">${p.badge}</span>` : ''}</div></div><div class="card-body"><div class="card-brand">${[p.brand, p.model].filter(Boolean).join(' • ')}</div><div class="card-name">${escapeHtml(p.name)}</div>${p.partNumber ? `<div class="card-part">P/N: ${p.partNumber}</div>` : ''}<div class="card-price"><span class="currency">$</span>${formatNum(p.finalPrice)}</div><div class="card-stock">${stockLabel(p.stock)}</div></div><div class="card-footer"><button class="btn-cart" onclick="event.stopPropagation();addToCart('${p.id}')">🛒 Agregar</button><button class="btn-share" onclick="event.stopPropagation();openShare('${p.id}')">📤</button></div></div>`).join('');
     }
-    requestAnimationFrame(() => {
-      grid.classList.add('visible');
-      // Configurar observer después de renderizar
-      setTimeout(setupProductObserver, 50);
-    });
+    requestAnimationFrame(() => { grid.classList.add('visible'); });
   } catch(e) {
     console.error('Error en renderProducts:', e);
     grid.innerHTML = '<p style="padding:40px;text-align:center">Error al cargar productos</p>';
@@ -2457,18 +2648,19 @@ function renderProducts() {
 
 // ===== APLICAR EFECTO DESDE ADMIN =====
 function applyProductEffect(effect) {
-  // Actualizar data-effect de las tarjetas y reiniciar observer
-  document.querySelectorAll('.product-card').forEach(card => {
-    card.dataset.effect = effect;
-    // Si ya tiene clase de animación, se la quitamos para que se pueda volver a activar
-    const effects = ['explosion','implosion','difuminado','estrellas','windows','matrix','espacial','humo','flash','persiana'];
+  const previewCards = document.querySelectorAll('.product-card');
+  const effects = ['explosion','implosion','difuminado','estrellas','windows','matrix','espacial','humo','flash','persiana'];
+  previewCards.forEach(card => {
     effects.forEach(e => card.classList.remove(`anim-${e}`));
-    card.classList.remove('anim-triggered');
+    if (effect !== 'none') {
+      card.classList.add(`anim-${effect}`);
+      card.style.animation = 'none';
+      card.offsetHeight;
+      card.style.animation = '';
+    }
   });
   const sel = document.getElementById('productEffectSelector');
   if (sel) sel.value = effect;
-  // Reiniciar observer
-  setupProductObserver();
 }
 
 function saveProductEffect() {
@@ -2481,15 +2673,8 @@ function saveProductEffect() {
   const effect = sel.value;
   DB.config.productEffect = effect;
   saveFullData();
-  // Actualizar todas las tarjetas y reiniciar observer
-  document.querySelectorAll('.product-card').forEach(card => {
-    card.dataset.effect = effect;
-    const effects = ['explosion','implosion','difuminado','estrellas','windows','matrix','espacial','humo','flash','persiana'];
-    effects.forEach(e => card.classList.remove(`anim-${e}`));
-    card.classList.remove('anim-triggered');
-  });
-  setupProductObserver();
-  notify(`✅ Efecto "${effect}" guardado. Se activará al hacer scroll.`);
+  renderProducts();
+  notify(`✅ Efecto "${effect}" guardado y aplicado`);
 }
 
 // ===== FUNCIONES DE BÚSQUEDA Y FILTROS =====
