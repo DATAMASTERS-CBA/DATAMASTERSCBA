@@ -178,7 +178,6 @@ body {
   -webkit-backdrop-filter: none !important;
 }
 
-/* En móvil mantenemos fondo fijo y sin difuminado */
 @media (max-width: 768px) {
   body {
     background-attachment: fixed !important;
@@ -937,7 +936,7 @@ footer {
 .share-item:hover .share-icon { transform: scale(1.12); }
 .share-item span { font-size: 0.75rem; font-weight: 600; color: var(--text2); }
 
-/* ===== MEJORAS PARA MÓVIL ===== */
+/* ===== MEJORAS PARA MÓVIL: se mantiene el diseño de escritorio, solo se ajustan fuentes y padding ===== */
 @media (max-width: 768px) {
   #header {
     backdrop-filter: none !important;
@@ -950,21 +949,30 @@ footer {
   .banner-carousel { height: 160px; }
   .banner-content h2 { font-size: 1.4rem; }
   .form-row { grid-template-columns: 1fr; }
-  /* 3 columnas en móvil */
-  .products-grid { grid-template-columns: repeat(3, 1fr); gap: 10px; }
-  .card-img-wrap { height: 120px; }
-  .card-body { padding: 8px 10px; }
-  .card-name { font-size: 0.75rem; }
-  .card-price { font-size: 1rem; }
-  .card-brand { font-size: 0.6rem; }
-  .card-part { font-size: 0.6rem; }
-  .card-footer { padding: 6px 8px; flex-wrap: wrap; }
-  .btn-cart { font-size: 0.65rem; padding: 6px 4px; }
-  .btn-share { font-size: 12px; padding: 6px 8px; }
+  /* Mantener el grid como en escritorio (auto-fill) pero con tamaños de fuente más grandes para legibilidad */
+  .products-grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+  }
+  .card-img-wrap { height: 160px; }
+  .card-body { padding: 12px 14px; }
+  .card-name { font-size: 1rem; }
+  .card-price { font-size: 1.2rem; }
+  .card-brand { font-size: 0.7rem; }
+  .card-part { font-size: 0.7rem; }
+  .card-stock { font-size: 0.7rem; }
+  .card-footer { padding: 10px 14px; flex-wrap: wrap; gap: 8px; }
+  .btn-cart { font-size: 0.8rem; padding: 8px 12px; }
+  .btn-share { font-size: 14px; padding: 8px 12px; }
+  .badge { font-size: 0.6rem; padding: 3px 6px; }
   .new-sale-card h2 { font-size: 1.2rem; }
   .new-sale-icon { font-size: 36px; }
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
   .stat-val { font-size: 1.4rem; }
+  .toolbar { gap: 8px; }
+  .sort-select { font-size: 0.8rem; padding: 6px 10px; }
+  .chip { font-size: 0.7rem; padding: 4px 10px; }
+  .results-count { font-size: 0.75rem; }
   .product-card:hover { transform: none !important; }
   .product-card:hover .card-img-wrap img { transform: none !important; }
   .btn-cart:hover { transform: none !important; }
@@ -976,7 +984,6 @@ footer {
   .btn-secondary:hover { transform: none !important; }
   .btn-review:hover { transform: none !important; }
   .banner-slide { transition: opacity 0.3s ease; }
-  /* Fondo fijo en móvil también */
   body { background-attachment: fixed !important; }
 }
 
@@ -1365,6 +1372,8 @@ let _realtimeUnsubscribe = null;
 let _realtimeBannersUnsubscribe = null;
 let _isDataLoadedFromCloud = false;
 let _initialRenderDone = false;
+
+// Observador para animaciones al hacer scroll
 let _productObserver = null;
 
 const seasonalBackgrounds = {
@@ -1648,11 +1657,8 @@ function previewProduct(id) {
   openModal('adminPreviewModal');
 }
 
-// ==================== OBSERVER PARA ANIMACIONES AL SCROLL (SOLO DESKTOP) ====================
+// ==================== OBSERVER PARA ANIMACIONES AL SCROLL ====================
 function setupProductObserver() {
-  // Si es móvil, no se necesita observer porque los efectos ya se aplican al cargar
-  if (window.innerWidth <= 768) return;
-  
   if (_productObserver) _productObserver.disconnect();
   const options = {
     root: null,
@@ -1665,6 +1671,7 @@ function setupProductObserver() {
         const card = entry.target;
         const effect = card.dataset.effect || DB.config.productEffect || 'none';
         if (effect !== 'none') {
+          // Evitar aplicar la animación más de una vez
           if (!card.classList.contains('anim-triggered')) {
             card.classList.add(`anim-${effect}`, 'anim-triggered');
           }
@@ -1672,35 +1679,10 @@ function setupProductObserver() {
       }
     });
   }, options);
+
+  // Observar todas las tarjetas de producto existentes
   document.querySelectorAll('.product-card').forEach(card => {
     _productObserver.observe(card);
-  });
-}
-
-// ===== APLICAR EFECTOS A TODAS LAS TARJETAS (en móvil se ejecuta inmediatamente) =====
-function applyEffectsToAllCards() {
-  const cards = document.querySelectorAll('.product-card');
-  const effect = DB.config.productEffect || 'none';
-  const isMobile = window.innerWidth <= 768;
-  cards.forEach(card => {
-    // Remover clases de animación previas
-    const effects = ['explosion','implosion','difuminado','estrellas','windows','matrix','espacial','humo','flash','persiana'];
-    effects.forEach(e => card.classList.remove(`anim-${e}`));
-    card.classList.remove('anim-triggered');
-    if (effect !== 'none') {
-      if (isMobile) {
-        // En móvil aplicar inmediatamente
-        card.classList.add(`anim-${effect}`, 'anim-triggered');
-      } else {
-        // En desktop, dejar que el observer lo haga, pero si ya está visible, activar
-        // Se puede dejar que el observer lo maneje, pero también forzar si ya está visible
-        const rect = card.getBoundingClientRect();
-        const windowHeight = window.innerHeight || document.documentElement.clientHeight;
-        if (rect.top < windowHeight && rect.bottom > 0) {
-          card.classList.add(`anim-${effect}`, 'anim-triggered');
-        }
-      }
-    }
   });
 }
 
@@ -1815,14 +1797,8 @@ function loadDataFromCloud() {
       }
       const grid = document.getElementById('productsGrid');
       if (grid) grid.classList.add('visible');
-      // Aplicar efectos a todas las tarjetas (en móvil todas, en desktop las visibles)
-      setTimeout(() => {
-        applyEffectsToAllCards();
-        // Configurar observer solo en desktop
-        if (window.innerWidth > 768) {
-          setupProductObserver();
-        }
-      }, 100);
+      // Configurar observer después de que los productos estén renderizados
+      setTimeout(setupProductObserver, 100);
     }
   }
   checkFirebase();
@@ -2442,7 +2418,7 @@ function renderPhotoList() {
 function updatePhotoPreview(input, i) { photoUrls[i] = input.value; const img = input.previousElementSibling; if (img) img.src = input.value || 'https://via.placeholder.com/50?text=Preview'; }
 function removePhoto(i) { if (currentUser?.role !== 'admin') { notify('⛔ Solo el administrador puede eliminar imágenes', 'error'); return; } photoUrls.splice(i, 1); renderPhotoList(); notify('🗑️ Imagen eliminada', 'info'); }
 
-// ===== RENDER PRODUCTOS (con efecto aplicado según dispositivo) =====
+// ===== RENDER PRODUCTOS MEJORADO (con efecto al scroll) =====
 function renderProducts() {
   const grid = document.getElementById('productsGrid');
   if (!grid) return;
@@ -2461,7 +2437,7 @@ function renderProducts() {
     const countSpan = document.getElementById('resultsCount');
     if (countSpan) countSpan.textContent = `${prods.length} producto${prods.length !== 1 ? 's' : ''}`;
     const effect = DB.config.productEffect || 'none';
-    // No añadimos la clase de animación aquí, se aplica después en applyEffectsToAllCards
+    // No añadimos la clase de animación aquí, solo data-effect para el observer
     if (prods.length === 0) {
       grid.innerHTML = `<div class="no-products" style="grid-column:1/-1"><div class="icon">🔍</div><h3>Sin resultados</h3><p>${searchQuery ? 'No se encontraron productos para "' + escapeHtml(searchQuery) + '"' : 'No hay productos disponibles'}</p></div>`;
     } else {
@@ -2469,14 +2445,8 @@ function renderProducts() {
     }
     requestAnimationFrame(() => {
       grid.classList.add('visible');
-      // Aplicar efectos inmediatamente
-      setTimeout(() => {
-        applyEffectsToAllCards();
-        // En desktop configurar observer para los que no estén visibles
-        if (window.innerWidth > 768) {
-          setupProductObserver();
-        }
-      }, 50);
+      // Configurar observer después de renderizar
+      setTimeout(setupProductObserver, 50);
     });
   } catch(e) {
     console.error('Error en renderProducts:', e);
@@ -2490,18 +2460,15 @@ function applyProductEffect(effect) {
   // Actualizar data-effect de las tarjetas y reiniciar observer
   document.querySelectorAll('.product-card').forEach(card => {
     card.dataset.effect = effect;
+    // Si ya tiene clase de animación, se la quitamos para que se pueda volver a activar
     const effects = ['explosion','implosion','difuminado','estrellas','windows','matrix','espacial','humo','flash','persiana'];
     effects.forEach(e => card.classList.remove(`anim-${e}`));
     card.classList.remove('anim-triggered');
   });
   const sel = document.getElementById('productEffectSelector');
   if (sel) sel.value = effect;
-  // Aplicar a todas las tarjetas según el dispositivo
-  applyEffectsToAllCards();
-  // Reiniciar observer en desktop
-  if (window.innerWidth > 768) {
-    setupProductObserver();
-  }
+  // Reiniciar observer
+  setupProductObserver();
 }
 
 function saveProductEffect() {
@@ -2514,18 +2481,15 @@ function saveProductEffect() {
   const effect = sel.value;
   DB.config.productEffect = effect;
   saveFullData();
-  // Actualizar todas las tarjetas
+  // Actualizar todas las tarjetas y reiniciar observer
   document.querySelectorAll('.product-card').forEach(card => {
     card.dataset.effect = effect;
     const effects = ['explosion','implosion','difuminado','estrellas','windows','matrix','espacial','humo','flash','persiana'];
     effects.forEach(e => card.classList.remove(`anim-${e}`));
     card.classList.remove('anim-triggered');
   });
-  applyEffectsToAllCards();
-  if (window.innerWidth > 768) {
-    setupProductObserver();
-  }
-  notify(`✅ Efecto "${effect}" guardado. Se activará al cargar la página (en móvil todas las tarjetas).`);
+  setupProductObserver();
+  notify(`✅ Efecto "${effect}" guardado. Se activará al hacer scroll.`);
 }
 
 // ===== FUNCIONES DE BÚSQUEDA Y FILTROS =====
@@ -2538,9 +2502,7 @@ function openProduct(id) {
   if (!p) return;
   document.getElementById('productModalTitle').textContent = p.name;
   const imgs = (p.images && p.images.length) ? p.images : ['https://via.placeholder.com/400'];
-  const effect = DB.config.productEffect || 'none';
-  const effectClass = effect !== 'none' ? `anim-${effect}` : '';
-  document.getElementById('productDetailContent').innerHTML = `<div class="product-detail-grid ${effectClass}" style="animation: ${effect !== 'none' ? 'var(--anim-'+effect+') 0.8s ease forwards' : 'none'}"><div class="pd-gallery"><div class="pd-main-img"><img id="pdMainImg" src="${imgs[0]}" onerror="this.src='https://via.placeholder.com/400'"></div>${imgs.length > 1 ? `<div class="pd-thumbs">${imgs.map((img, i) => `<div class="pd-thumb ${i===0?'active':''}" onclick="switchPdImg('${img}',${i},this)"><img src="${img}" onerror="this.src='https://via.placeholder.com/60'"></div>`).join('')}</div>` : ''}</div><div class="pd-info"><div class="pd-brand">${[p.brand, p.model].filter(Boolean).join(' › ')}</div><h2 class="pd-name">${escapeHtml(p.name)}</h2>${p.partNumber ? `<div class="pd-part">P/N: ${p.partNumber}</div>` : ''}${p.badge ? `<span class="badge badge-${p.badge.toLowerCase()}">${p.badge}</span>` : ''}<div class="pd-price">$${formatNum(p.finalPrice)}</div><div class="pd-stock-info ${p.stock >= 10 ? 'pd-stock-ok' : 'pd-stock-low'}">${stockLabel(p.stock)}</div>${p.description ? `<div class="pd-description"><h4>📝 Descripción</h4><p>${escapeHtml(p.description)}</p></div>` : ''}<button class="btn-primary" onclick="addToCart('${p.id}');closeModal('productModal')">🛒 Agregar al carrito</button></div></div>`;
+  document.getElementById('productDetailContent').innerHTML = `<div class="product-detail-grid"><div class="pd-gallery"><div class="pd-main-img"><img id="pdMainImg" src="${imgs[0]}" onerror="this.src='https://via.placeholder.com/400'"></div>${imgs.length > 1 ? `<div class="pd-thumbs">${imgs.map((img, i) => `<div class="pd-thumb ${i===0?'active':''}" onclick="switchPdImg('${img}',${i},this)"><img src="${img}" onerror="this.src='https://via.placeholder.com/60'"></div>`).join('')}</div>` : ''}</div><div class="pd-info"><div class="pd-brand">${[p.brand, p.model].filter(Boolean).join(' › ')}</div><h2 class="pd-name">${escapeHtml(p.name)}</h2>${p.partNumber ? `<div class="pd-part">P/N: ${p.partNumber}</div>` : ''}${p.badge ? `<span class="badge badge-${p.badge.toLowerCase()}">${p.badge}</span>` : ''}<div class="pd-price">$${formatNum(p.finalPrice)}</div><div class="pd-stock-info ${p.stock >= 10 ? 'pd-stock-ok' : 'pd-stock-low'}">${stockLabel(p.stock)}</div>${p.description ? `<div class="pd-description"><h4>📝 Descripción</h4><p>${escapeHtml(p.description)}</p></div>` : ''}<button class="btn-primary" onclick="addToCart('${p.id}');closeModal('productModal')">🛒 Agregar al carrito</button></div></div>`;
   openModal('productModal');
 }
 
