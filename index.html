@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Data-Masters ventas</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Mono:wght@400;700&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script>
@@ -85,6 +85,7 @@ if (!_initFirebase()) {
   --radius-lg: 22px;
   --font: 'Plus Jakarta Sans', sans-serif;
   --font-mono: 'Space Mono', monospace;
+  --font-digital: 'Orbitron', sans-serif;
   --header-bg: #1A1A2E;
   --header-text: #FFFFFF;
   --badge-new: #10B981;
@@ -318,6 +319,32 @@ body {
   background: var(--accent); color: #fff; border-radius: 50%;
   width: 20px; height: 20px; font-size: 0.7rem; font-weight: 700;
   display: flex; align-items: center; justify-content: center;
+}
+
+/* === CONTADOR DIGITAL RETRO === */
+.visit-counter {
+  font-family: var(--font-digital);
+  background: #0a0a0a;
+  padding: 4px 12px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #33ff33;
+  box-shadow: 0 0 8px rgba(51,255,51,0.3);
+  color: #33ff33;
+  font-weight: 700;
+  font-size: 0.9rem;
+  letter-spacing: 1px;
+  text-shadow: 0 0 6px #33ff33;
+}
+.visit-counter .icon {
+  font-size: 1.1rem;
+  filter: drop-shadow(0 0 4px #33ff33);
+}
+.visit-counter .number {
+  min-width: 50px;
+  text-align: center;
 }
 
 .main-wrap { max-width: 1400px; margin: 0 auto; padding: 0 24px 40px; }
@@ -612,6 +639,16 @@ body {
   min-width: 0;
   word-break: break-word;
   overflow: hidden;
+  cursor: default;
+  transition: var(--transition);
+}
+.stat-card.clickable {
+  cursor: pointer;
+}
+.stat-card.clickable:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-hover);
+  border-color: var(--primary);
 }
 .stat-val {
   font-size: 1.8rem;
@@ -1256,6 +1293,14 @@ footer {
   .payment-methods {
     grid-template-columns: 1fr 1fr;
   }
+  .visit-counter {
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    gap: 4px;
+  }
+  .visit-counter .number {
+    min-width: 30px;
+  }
 }
 
 .page-loading {
@@ -1359,6 +1404,11 @@ footer {
       <button class="search-btn" onclick="handleSearch(document.getElementById('searchInput').value)">🔍</button>
     </div>
     <div class="header-actions">
+      <!-- CONTADOR DIGITAL RETRO -->
+      <div class="visit-counter" id="visitCounter">
+        <span class="icon">👁️</span>
+        <span class="number" id="visitNumber">0</span>
+      </div>
       <button class="hbtn" onclick="openCartModal()" id="cartBtn">🛒 Carrito <span class="cart-count" id="cartCount">0</span></button>
       <button class="hbtn" id="authBtn" onclick="openAuthModal()">👤 Ingresar</button>
       <button class="hbtn" id="userBtn" style="display:none" onclick="openUserMenu()">👤 <span id="userNameDisplay"></span></button>
@@ -1588,6 +1638,24 @@ footer {
 <div class="share-panel" id="sharePanel" onclick="if(event.target===this)closeSharePanel()"><div class="share-sheet"><h3>Compartir</h3><div class="share-grid" id="shareGrid"></div><button class="btn-secondary" onclick="closeSharePanel()">Cerrar</button></div></div>
 <div class="notif-container" id="notifContainer"></div>
 
+<!-- Modal para editar el contador de visitas -->
+<div class="modal-overlay" id="visitEditModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2>👁️ Editar contador de visitas</h2>
+      <button class="modal-close" onclick="closeModal('visitEditModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Cantidad actual de visitas</label>
+        <input type="number" id="visitEditInput" min="0" step="1" value="0">
+      </div>
+      <button class="btn-primary" onclick="saveVisitCount()">💾 Guardar</button>
+      <button class="btn-secondary" onclick="closeModal('visitEditModal')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ==================== INICIALIZACIÓN GLOBAL ====================
 let DB = {
@@ -1622,7 +1690,8 @@ let DB = {
     quickFilters: ['Todos', 'Pantalla', 'Teclado', 'Batería', 'Cargador', 'Placa Madre', 'Memoria RAM', 'Disco SSD', 'Procesador'],
     adminUser: null,
     adminPass: null,
-    productEffect: 'none'
+    productEffect: 'none',
+    visitCount: 0
   }
 };
 
@@ -1643,6 +1712,7 @@ let _realtimeUnsubscribe = null;
 let _realtimeBannersUnsubscribe = null;
 let _isDataLoadedFromCloud = false;
 let _initialRenderDone = false;
+let _visitCountedThisSession = false;
 
 const seasonalBackgrounds = {
   "ene": { name: "🎆 Año Nuevo", gradient: "linear-gradient(135deg,#1a1a2e 0%,#16213e 25%,#0f3460 50%,#e94560 100%)", icon: "🎆" },
@@ -1701,6 +1771,7 @@ function _fixDB() {
     DB.config.quickFilters = ['Todos', ...DB.config.quickFilters.filter(f => f !== 'Todos')];
   }
   if (!DB.config.productEffect) DB.config.productEffect = 'none';
+  if (DB.config.visitCount === undefined) DB.config.visitCount = 0;
 }
 
 function setupRealtimeSync() {
@@ -1740,6 +1811,7 @@ function setupRealtimeSync() {
             checkAdminSetup();
             const sel = document.getElementById('productEffectSelector');
             if (sel) sel.value = DB.config.productEffect || 'none';
+            updateVisitCounter();
           }
         } catch(e) { console.warn(e); }
       }
@@ -1785,6 +1857,50 @@ function resizeImage(file, maxWidth = 800, maxHeight = 800, quality = 0.7) {
     };
     reader.onerror = function(error) { reject(error); };
   });
+}
+
+// ==================== CONTADOR DE VISITAS ====================
+function incrementVisitCount() {
+  // Solo contar si estamos en la tienda (no en admin) y no se ha contado en esta sesión
+  if (_visitCountedThisSession) return;
+  const storeView = document.getElementById('storeView');
+  if (!storeView || storeView.style.display === 'none') return;
+  _visitCountedThisSession = true;
+  DB.config.visitCount = (DB.config.visitCount || 0) + 1;
+  saveFullData();
+  updateVisitCounter();
+}
+
+function updateVisitCounter() {
+  const numberSpan = document.getElementById('visitNumber');
+  if (numberSpan) {
+    numberSpan.textContent = DB.config.visitCount || 0;
+  }
+  // También actualizar la tarjeta en el dashboard si está visible
+  const statVisit = document.getElementById('statVisit');
+  if (statVisit) {
+    statVisit.textContent = DB.config.visitCount || 0;
+  }
+}
+
+function openVisitEditor() {
+  if (currentUser?.role !== 'admin') {
+    notify('⛔ Solo el administrador puede editar el contador', 'error');
+    return;
+  }
+  document.getElementById('visitEditInput').value = DB.config.visitCount || 0;
+  openModal('visitEditModal');
+}
+
+function saveVisitCount() {
+  const input = document.getElementById('visitEditInput');
+  let val = parseInt(input.value);
+  if (isNaN(val) || val < 0) val = 0;
+  DB.config.visitCount = val;
+  saveFullData();
+  updateVisitCounter();
+  closeModal('visitEditModal');
+  notify('✅ Contador de visitas actualizado');
 }
 
 // ==================== FILTROS RÁPIDOS (TIENDA) ====================
@@ -2025,6 +2141,9 @@ function loadDataFromCloud() {
       checkAdminSetup();
       const sel = document.getElementById('productEffectSelector');
       if (sel) sel.value = DB.config.productEffect || 'none';
+      // Contador de visitas
+      updateVisitCounter();
+      incrementVisitCount();
       setTimeout(setupRealtimeSync, 2000);
     } catch(e) {
       console.error('Error en finishLoading:', e);
@@ -2690,9 +2809,7 @@ function renderProducts() {
 
 // ===== APLICAR EFECTO DESDE ADMIN =====
 function applyProductEffect(effect) {
-  // En móvil no aplicar efectos para evitar parpadeos
   if (window.innerWidth <= 768) {
-    // Quitar cualquier clase de efecto
     const previewCards = document.querySelectorAll('.product-card');
     const effects = ['explosion','implosion','difuminado','estrellas','windows','matrix','espacial','humo','flash','persiana'];
     previewCards.forEach(card => {
@@ -3362,8 +3479,9 @@ function toggleBadge(el) {
 function renderStats() {
   const grid = document.getElementById('statsGrid');
   if (!grid) return;
-  const total = DB.products.length, inStock = DB.products.filter(p => p.stock > 0).length, totalOrders = DB.orders.length, delivered = DB.deliveredOrders.length, pendingSales = DB.orders.filter(o => (o.status === 'Pendiente' || o.status === 'Confirmado') && !DB.reviewedSales.includes(o.id)).length, revenue = DB.deliveredOrders.reduce((s, d) => s + d.total, 0), users = DB.users.length;
-  grid.innerHTML = `<div class="stat-card"><div class="stat-val">${total}</div><div class="stat-label">Productos</div></div><div class="stat-card"><div class="stat-val">${inStock}</div><div class="stat-label">Con stock</div></div><div class="stat-card"><div class="stat-val">${totalOrders}</div><div class="stat-label">Pedidos</div></div><div class="stat-card"><div class="stat-val">${delivered}</div><div class="stat-label">Retirados</div></div><div class="stat-card"><div class="stat-val">${pendingSales}</div><div class="stat-label">Nuevas Ventas</div></div><div class="stat-card"><div class="stat-val">$${formatNum(revenue)}</div><div class="stat-label">Ingresos</div></div><div class="stat-card"><div class="stat-val">${users}</div><div class="stat-label">Clientes</div></div>`;
+  const total = DB.products.length, inStock = DB.products.filter(p => p.stock > 0).length, totalOrders = DB.orders.length, delivered = DB.deliveredOrders.length, pendingSales = DB.orders.filter(o => (o.status === 'Pendiente' || o.status === 'Confirmado') && !DB.reviewedSales.includes(o.id)).length, revenue = DB.deliveredOrders.reduce((s, d) => s + d.total, 0), users = DB.users.length, visits = DB.config.visitCount || 0;
+  grid.innerHTML = `<div class="stat-card"><div class="stat-val">${total}</div><div class="stat-label">Productos</div></div><div class="stat-card"><div class="stat-val">${inStock}</div><div class="stat-label">Con stock</div></div><div class="stat-card"><div class="stat-val">${totalOrders}</div><div class="stat-label">Pedidos</div></div><div class="stat-card"><div class="stat-val">${delivered}</div><div class="stat-label">Retirados</div></div><div class="stat-card"><div class="stat-val">${pendingSales}</div><div class="stat-label">Nuevas Ventas</div></div><div class="stat-card"><div class="stat-val">$${formatNum(revenue)}</div><div class="stat-label">Ingresos</div></div><div class="stat-card"><div class="stat-val">${users}</div><div class="stat-label">Clientes</div></div>
+  <div class="stat-card clickable" onclick="openVisitEditor()" id="visitStatCard"><div class="stat-val" id="statVisit">${visits}</div><div class="stat-label">👁️ Visitas (editar)</div></div>`;
 }
 
 function renderNewSaleNotification() {
@@ -3622,6 +3740,7 @@ function importDB(e) {
         renderBanners();
         renderFiltersAdmin();
         createQuickFilters();
+        updateVisitCounter();
         notify('✅ Base cargada');
       } else notify('❌ Archivo inválido', 'error');
     } catch (err) { notify('❌ Error al leer', 'error'); }
@@ -3674,6 +3793,8 @@ function showStore() {
   renderBanners();
   startBannerCarousel();
   createQuickFilters();
+  // Al volver a la tienda, incrementar contador si no se ha contado en esta sesión
+  incrementVisitCount();
 }
 
 function switchAdminTab(tab, el) {
