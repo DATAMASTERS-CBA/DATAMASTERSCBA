@@ -2665,13 +2665,104 @@ function saveProductEffect() {
 function handleSearch(val) { searchQuery = val; renderProducts(); updateQuickFilterButtons(); }
 function setFilter(val, el) { currentFilter = val; document.querySelectorAll('.filter-chips .chip').forEach(c => c.classList.remove('active')); if (el) el.classList.add('active'); renderProducts(); }
 
-// ===== FUNCIONES DE PRODUCTO (modal) =====
+// ===== VISTA AMPLIADA DEL PRODUCTO (MODAL) =====
+// Inyecta los estilos de animación para el modal (mismas keyframes que las tarjetas)
+function injectProductModalStyles() {
+  if (document.getElementById('pdModalStyles')) return;
+  const style = document.createElement('style');
+  style.id = 'pdModalStyles';
+  style.textContent = `
+    #productModal .modal-box { max-width: 900px; }
+    .pd-modal-anim { will-change: transform, opacity, filter; backface-visibility: hidden; }
+    .pd-modal-anim.anim-explosion { animation: animExplosion 0.8s ease forwards; }
+    .pd-modal-anim.anim-implosion { animation: animImplosion 0.8s ease forwards; }
+    .pd-modal-anim.anim-difuminado { animation: animDifuminado 0.8s ease forwards; }
+    .pd-modal-anim.anim-estrellas { animation: animEstrellas 0.9s ease forwards; }
+    .pd-modal-anim.anim-windows { animation: animWindows 0.8s ease forwards; }
+    .pd-modal-anim.anim-matrix { animation: animMatrix 0.8s ease forwards; }
+    .pd-modal-anim.anim-espacial { animation: animEspacial 0.8s ease forwards; }
+    .pd-modal-anim.anim-humo { animation: animHumo 0.8s ease forwards; }
+    .pd-modal-anim.anim-flash { animation: animFlash 0.8s ease forwards; }
+    .pd-modal-anim.anim-persiana { animation: animPersiana 0.7s ease forwards; }
+    #productModal .pd-description p {
+      font-weight: 700 !important;
+      color: var(--text) !important;
+      font-size: 0.92rem;
+      line-height: 1.6;
+    }
+    #productModal .pd-name { font-size: 1.6rem; }
+    #productModal .pd-main-img img { max-height: 420px; }
+  `;
+  document.head.appendChild(style);
+}
+
+// Crea el modal (solo una vez) sin tocar el HTML del archivo
+function ensureProductModal() {
+  if (document.getElementById('productModal')) return;
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'productModal';
+  overlay.innerHTML = `
+    <div class="modal-box wide">
+      <div class="modal-header">
+        <h2 id="productModalTitle"></h2>
+        <button class="modal-close" onclick="closeModal('productModal')">✕</button>
+      </div>
+      <div class="modal-body" id="productDetailContent"></div>
+    </div>`;
+  overlay.addEventListener('click', function (e) { if (e.target === this) closeModal('productModal'); });
+  document.body.appendChild(overlay);
+}
+
+// Abre el producto en grande, con el mismo efecto configurado en la página
 function openProduct(id) {
   const p = DB.products.find(x => x.id === id);
   if (!p) return;
+
+  injectProductModalStyles();
+  ensureProductModal();
+
   document.getElementById('productModalTitle').textContent = p.name;
+
   const imgs = (p.images && p.images.length) ? p.images : ['https://via.placeholder.com/400'];
-  document.getElementById('productDetailContent').innerHTML = `<div class="product-detail-grid"><div class="pd-gallery"><div class="pd-main-img"><img id="pdMainImg" src="${imgs[0]}" onerror="this.src='https://via.placeholder.com/400'"></div>${imgs.length > 1 ? `<div class="pd-thumbs">${imgs.map((img, i) => `<div class="pd-thumb ${i===0?'active':''}" onclick="switchPdImg('${img}',${i},this)"><img src="${img}" onerror="this.src='https://via.placeholder.com/60'"></div>`).join('')}</div>` : ''}</div><div class="pd-info"><div class="pd-brand">${[p.brand, p.model].filter(Boolean).join(' › ')}</div><h2 class="pd-name">${escapeHtml(p.name)}</h2>${p.partNumber ? `<div class="pd-part">P/N: ${p.partNumber}</div>` : ''}${p.badge ? `<span class="badge badge-${p.badge.toLowerCase()}">${p.badge}</span>` : ''}<div class="pd-price">$${formatNum(p.finalPrice)}</div><div class="pd-stock-info ${p.stock >= 10 ? 'pd-stock-ok' : 'pd-stock-low'}">${stockLabel(p.stock)}</div>${p.description ? `<div class="pd-description"><h4>📝 Descripción</h4><p>${escapeHtml(p.description)}</p></div>` : ''}<button class="btn-primary" onclick="consultarWhatsApp('${p.id}');closeModal('productModal')" style="background:#25D366;color:#fff;">💬 Consultar por WhatsApp</button></div></div>`;
+  const effect = DB.config.productEffect || 'none';
+  const effectClass = effect !== 'none' ? ` pd-modal-anim anim-${effect}` : '';
+  const badgeHtml = p.badge ? `<span class="badge badge-${p.badge.toLowerCase()}">${p.badge}</span>` : '';
+  const descHtml = (p.description && p.description.trim())
+    ? `<p><strong>${escapeHtml(p.description)}</strong></p>`
+    : `<p><strong>Sin descripción disponible.</strong></p>`;
+
+  document.getElementById('productDetailContent').innerHTML = `
+    <div class="product-detail-grid${effectClass}">
+      <div class="pd-gallery">
+        <div class="pd-main-img">
+          <img id="pdMainImg" src="${imgs[0]}" onerror="this.src='https://via.placeholder.com/400'">
+        </div>
+        ${imgs.length > 1 ? `<div class="pd-thumbs">${imgs.map((img, i) => `<div class="pd-thumb ${i === 0 ? 'active' : ''}" onclick="switchPdImg('${img}',${i},this)"><img src="${img}" onerror="this.src='https://via.placeholder.com/60'"></div>`).join('')}</div>` : ''}
+      </div>
+      <div class="pd-info">
+        <div class="pd-brand">${[p.brand, p.model].filter(Boolean).join(' › ')}</div>
+        <h2 class="pd-name">${escapeHtml(p.name)}</h2>
+        ${p.partNumber ? `<div class="pd-part" style="font-family:var(--font-mono);font-size:0.8rem;color:var(--text3)">P/N: ${escapeHtml(p.partNumber)}</div>` : ''}
+        ${badgeHtml}
+        <div class="pd-price">$${formatNum(p.finalPrice)}</div>
+        <div class="pd-stock-info ${p.stock >= 10 ? 'pd-stock-ok' : 'pd-stock-low'}">${stockLabel(p.stock)}</div>
+        <div class="pd-description">
+          <h4>📝 Descripción</h4>
+          ${descHtml}
+        </div>
+        <button class="btn-primary" onclick="consultarWhatsApp('${p.id}');closeModal('productModal')" style="background:#25D366;color:#fff;">💬 Consultar por WhatsApp</button>
+      </div>
+    </div>`;
+
+  // Fuerza a que la animación se reproduzca cada vez que se abre el modal
+  const animEl = document.querySelector('#productDetailContent .product-detail-grid');
+  if (animEl && effect !== 'none') {
+    animEl.style.animation = 'none';
+    void animEl.offsetHeight; // reflow
+    animEl.style.animation = '';
+  }
+
   openModal('productModal');
 }
 
